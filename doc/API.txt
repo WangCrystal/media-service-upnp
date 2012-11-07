@@ -309,11 +309,11 @@ Signals:
 
 The com.intel.UPnP.MediaDevice interface also exposes two signals.
 
-ContainerUpdate(ao ContainerPaths)
+ContainerUpdateIDs(a(ou) ContainerPathsIDs)
 
 Is generated when the contents of one or more folders maintained by the
-server have changed. This signal contains an array of paths of the server
-containers that have changed.
+server have changed. This signal contains an array of paths/ContainerUpdateID
+of the server containers that have changed.
 
 UploadUpdate(u UploadId, s UploadStatus, Length t, Total t)
 
@@ -707,7 +707,7 @@ the names of the org.gnome.UPnP.MediaItem2 properties to which they
 correspond, e.g., MIMEType, Size.
 However, one additional property is included.
 
-Additional property 
+Additional property
 -------------------
 
 |---------------------------------------------------------------------------|

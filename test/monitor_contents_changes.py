@@ -35,9 +35,9 @@ def properties_changed(iface, changed, invalidated, path):
 
 def container_update(id_list, path, interface):
     iface = interface[interface.rfind(".") + 1:]
-    print "ContainerUpdate signal from {%s} [%s]" % (iface, path)
-    for id in id_list:
-        print "-->\t %s" % (id)
+    print "ContainerUpdateIDs signal from {%s} [%s]" % (iface, path)
+    for (id_path, sys_id) in id_list:
+        print "-->\t %s : %u" % (id_path, sys_id)
 
 if __name__ == '__main__':
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -50,7 +50,7 @@ if __name__ == '__main__':
                             path_keyword="path")
     bus.add_signal_receiver(container_update,
                             bus_name="com.intel.media-service-upnp",
-                            signal_name = "ContainerUpdate",
+                            signal_name = "ContainerUpdateIDs",
                             path_keyword="path",
                             interface_keyword="interface")
 

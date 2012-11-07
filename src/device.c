@@ -217,22 +217,22 @@ static void prv_build_container_update_array(const gchar *root_path,
 	gchar **str_array;
 	int pos = 0;
 	gchar *path;
+	guint id;
 
-	/*
-	 * value contains (id, version) pairs
-	 * we must extract ids only
-	 */
 	str_array = g_strsplit(value, ",", 0);
 
-	while (str_array[pos]) {
-		if ((pos % 2) == 0) {
-			path = msu_path_from_id(root_path, str_array[pos]);
-			g_variant_builder_add(builder, "o", path);
-			g_free(path);
-		}
+	MSU_LOG_DEBUG_NL();
 
-		pos++;
+	while (str_array[pos] && str_array[pos + 1]) {
+		path = msu_path_from_id(root_path, str_array[pos++]);
+		id = atoi(str_array[pos++]);
+		g_variant_builder_add(builder, "(ou)", path, id);
+		MSU_LOG_DEBUG("@Id [%s] - Path [%s] - id[%d]",
+			      str_array[pos-2], path, id);
+		g_free(path);
 	}
+
+	MSU_LOG_DEBUG_NL();
 
 	g_strfreev(str_array);
 }
@@ -245,21 +245,21 @@ static void prv_container_update_cb(GUPnPServiceProxy *proxy,
 	msu_device_t *device = user_data;
 	GVariantBuilder array;
 
-	MSU_LOG_DEBUG("Container Update %s", g_value_get_string(value));
+	g_variant_builder_init(&array, G_VARIANT_TYPE("a(ou)"));
 
-	g_variant_builder_init(&array, G_VARIANT_TYPE("ao"));
 	prv_build_container_update_array(device->path,
 					 g_value_get_string(value),
 					 &array);
 
-	(void) g_dbus_connection_emit_signal(device->connection,
-					     NULL,
-					     device->path,
-					     MSU_INTERFACE_MEDIA_DEVICE,
-					     MSU_INTERFACE_CONTAINER_UPDATE,
-					     g_variant_new("(@ao)",
-					     g_variant_builder_end(&array)),
-					     NULL);
+	(void) g_dbus_connection_emit_signal(
+				device->connection,
+				NULL,
+				device->path,
+				MSU_INTERFACE_MEDIA_DEVICE,
+				MSU_INTERFACE_ESV_CONTAINER_UPDATE_IDS,
+				g_variant_new("(@a(ou))",
+					      g_variant_builder_end(&array)),
+				NULL);
 }
 
 static void prv_system_update_cb(GUPnPServiceProxy *proxy,

@@ -144,8 +144,8 @@
 #define MSU_INTERFACE_PROPERTIES_CHANGED "PropertiesChanged"
 #define MSU_INTERFACE_CHANGED_PROPERTIES "ChangedProperties"
 #define MSU_INTERFACE_INVALIDATED_PROPERTIES "InvalidatedProperties"
-#define MSU_INTERFACE_CONTAINER_UPDATE "ContainerUpdate"
-#define MSU_INTERFACE_CONTAINER_PATHS "ContainerPaths"
+#define MSU_INTERFACE_ESV_CONTAINER_UPDATE_IDS "ContainerUpdateIDs"
+#define MSU_INTERFACE_CONTAINER_PATHS_ID "ContainerPathsIDs"
 
 #define MSU_INTERFACE_DELETE "Delete"
 
@@ -169,4 +169,3 @@
 #define MSU_INTERFACE_CANCEL "Cancel"
 
 #endif
-
