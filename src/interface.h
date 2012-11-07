@@ -144,7 +144,6 @@
 #define MSU_INTERFACE_PROPERTIES_CHANGED "PropertiesChanged"
 #define MSU_INTERFACE_CHANGED_PROPERTIES "ChangedProperties"
 #define MSU_INTERFACE_INVALIDATED_PROPERTIES "InvalidatedProperties"
-#define MSU_INTERFACE_SYSTEM_UPDATE_ID "SystemUpdateId"
 #define MSU_INTERFACE_CONTAINER_UPDATE "ContainerUpdate"
 #define MSU_INTERFACE_CONTAINER_PATHS "ContainerPaths"
 

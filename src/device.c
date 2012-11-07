@@ -277,7 +277,8 @@ static void prv_system_update_cb(GUPnPServiceProxy *proxy,
 	device->system_update_id = suid;
 
 	array = g_variant_builder_new(G_VARIANT_TYPE("a{sv}"));
-	g_variant_builder_add(array, "{sv}", MSU_INTERFACE_SYSTEM_UPDATE_ID,
+	g_variant_builder_add(array, "{sv}",
+			      MSU_INTERFACE_PROP_ESV_SYSTEM_UPDATE_ID,
 			      g_variant_new_uint32(suid));
 	val = g_variant_new("(s@a{sv}as)", MSU_INTERFACE_MEDIA_DEVICE,
 			    g_variant_builder_end(array),
