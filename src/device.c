@@ -791,7 +791,7 @@ msu_device_t *msu_device_new(GDBusConnection *connection,
 
 	msu_chain_task_add(chain, prv_get_feature_list, dev,
 			   prv_get_feature_list_cb, NULL, priv_t);
-MSU_LOG_DEBUG("AFTER");
+
 	msu_chain_task_add(chain, prv_subscribe, dev, NULL, NULL, NULL);
 	msu_chain_task_add(chain, prv_declare, dev, NULL, g_free, priv_t);
 
