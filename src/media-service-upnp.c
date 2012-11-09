@@ -402,7 +402,7 @@ static const gchar g_msu_server_introspection[] =
 	MSU_INTERFACE_PROP_ESV_SYSTEM_UPDATE_ID"'"
 	"       access='read'/>"
 	"    <property type='s' name='"
-	MSU_INTERFACE_PROP_ESV_SERVICE_RESET_TOKEN"'"
+	MSU_INTERFACE_PROP_SV_SERVICE_RESET_TOKEN"'"
 	"       access='read'/>"
 	"    <signal name='"MSU_INTERFACE_ESV_CONTAINER_UPDATE_IDS"'>"
 	"      <arg type='a(ou)' name='"MSU_INTERFACE_CONTAINER_PATHS_ID"'/>"

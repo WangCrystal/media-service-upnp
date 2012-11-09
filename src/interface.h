@@ -75,6 +75,7 @@
 #define MSU_INTERFACE_PROP_SV_SORT_CAPABILITIES "SortCaps"
 #define MSU_INTERFACE_PROP_SV_SORT_EXT_CAPABILITIES "SortExtCaps"
 #define MSU_INTERFACE_PROP_SV_FEATURE_LIST "FeatureList"
+#define MSU_INTERFACE_PROP_SV_SERVICE_RESET_TOKEN "ServiceResetToken"
 
 /* Resources Properties */
 #define MSU_INTERFACE_PROP_MIME_TYPE "MIMEType"
@@ -93,7 +94,6 @@
 
 /* Evented State Variable Properties */
 #define MSU_INTERFACE_PROP_ESV_SYSTEM_UPDATE_ID "SystemUpdateID"
-#define MSU_INTERFACE_PROP_ESV_SERVICE_RESET_TOKEN "ServiceResetToken"
 
 #define MSU_INTERFACE_GET_VERSION "GetVersion"
 #define MSU_INTERFACE_GET_SERVERS "GetServers"

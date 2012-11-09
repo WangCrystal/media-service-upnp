@@ -1527,7 +1527,7 @@ static void prv_service_reset_for_props_cb(GUPnPServiceProxy *proxy,
 
 	cb_task_data = &cb_data->ut.get_all;
 	g_variant_builder_add(cb_task_data->vb, "{sv}",
-			      MSU_INTERFACE_PROP_ESV_SERVICE_RESET_TOKEN,
+			      MSU_INTERFACE_PROP_SV_SERVICE_RESET_TOKEN,
 			      g_variant_new_string(token));
 
 	cb_data->result = g_variant_ref_sink(g_variant_builder_end(
@@ -2186,7 +2186,7 @@ void msu_device_get_prop(msu_client_t *client,
 							cb_data);
 			} else if (!strcmp(
 				  task_data->prop_name,
-				  MSU_INTERFACE_PROP_ESV_SERVICE_RESET_TOKEN)) {
+				  MSU_INTERFACE_PROP_SV_SERVICE_RESET_TOKEN)) {
 				prv_get_sr_token_for_prop(
 							context->service_proxy,
 							task->target.device,
@@ -2235,7 +2235,7 @@ void msu_device_get_prop(msu_client_t *client,
 				complete = TRUE;
 			} else if (!strcmp(
 				  task_data->prop_name,
-				  MSU_INTERFACE_PROP_ESV_SERVICE_RESET_TOKEN)) {
+				  MSU_INTERFACE_PROP_SV_SERVICE_RESET_TOKEN)) {
 				prv_get_sr_token_for_prop(
 							context->service_proxy,
 							task->target.device,
