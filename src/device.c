@@ -26,6 +26,8 @@
 #include <libgupnp-dlna/gupnp-dlna-profile-guesser.h>
 #include <libgupnp-av/gupnp-media-collection.h>
 
+#include <libgupnp-av/gupnp-cds-last-change-parser.h>
+
 #include <libsoup/soup.h>
 
 #include "chain-task.h"
@@ -37,6 +39,7 @@
 
 #define MSU_SYSTEM_UPDATE_VAR "SystemUpdateID"
 #define MSU_CONTAINER_UPDATE_VAR "ContainerUpdateIDs"
+#define MSU_LAST_CHANGE_VAR "LastChange"
 #define MEDIA_SERVER_DEVICE_TYPE "urn:schemas-upnp-org:device:MediaServer:"
 
 #define MSU_UPLOAD_STATUS_IN_PROGRESS "IN_PROGRESS"
@@ -108,6 +111,10 @@ static void prv_system_update_cb(GUPnPServiceProxy *proxy,
 				const char *variable,
 				GValue *value,
 				gpointer user_data);
+static void prv_last_change_cb(GUPnPServiceProxy *proxy,
+				const char *variable,
+				GValue *value,
+				gpointer user_data);
 static void prv_msu_device_upload_delete(gpointer up);
 static void prv_msu_upload_job_delete(gpointer up);
 static void prv_get_sr_token_for_props(GUPnPServiceProxy *proxy,
@@ -160,6 +167,12 @@ static void prv_msu_context_delete(gpointer context)
 						MSU_CONTAINER_UPDATE_VAR,
 						prv_container_update_cb,
 						ctx->device);
+			gupnp_service_proxy_remove_notify(
+						ctx->service_proxy,
+						MSU_LAST_CHANGE_VAR,
+						prv_last_change_cb,
+						ctx->device);
+
 			gupnp_service_proxy_set_subscribed(ctx->service_proxy,
 							   FALSE);
 		}
@@ -221,6 +234,118 @@ void msu_device_delete(void *device)
 		g_variant_unref(dev->feature_list);
 		g_free(dev);
 	}
+}
+
+static void prv_last_change_decode(GUPnPCDSLastChangeEntry *entry,
+				   GVariantBuilder *array,
+				   const char *root_path)
+{
+	GUPnPCDSLastChangeEvent event;
+	GVariant *state = NULL;
+	const char *object_id;
+	const char *parent_id;
+	const char *class;
+	const char *media_class;
+	char *key[] = {"ADD", "DEL", "MOD", "DONE"};
+	char *parent_path = NULL;
+	char *path = NULL;
+	gboolean sub_update;
+	guint32 update_id;
+
+	object_id = gupnp_cds_last_change_entry_get_object_id(entry);
+	parent_id = gupnp_cds_last_change_entry_get_parent_id(entry);
+	class = gupnp_cds_last_change_entry_get_class(entry);
+	sub_update = gupnp_cds_last_change_entry_is_subtree_update(entry);
+	update_id = gupnp_cds_last_change_entry_get_update_id(entry);
+
+	if (object_id)
+		path = msu_path_from_id(root_path, object_id);
+
+	event = gupnp_cds_last_change_entry_get_event(entry);
+
+	switch (event) {
+	case GUPNP_CDS_LAST_CHANGE_EVENT_OBJECT_ADDED:
+		parent_path = msu_path_from_id(root_path, parent_id);
+		media_class = msu_props_upnp_class_to_media_spec(class);
+		state = g_variant_new("(oubos)", path, update_id, sub_update,
+				      parent_path, media_class);
+		break;
+	case GUPNP_CDS_LAST_CHANGE_EVENT_OBJECT_REMOVED:
+	case GUPNP_CDS_LAST_CHANGE_EVENT_OBJECT_MODIFIED:
+		state = g_variant_new("(oub)", path, update_id, sub_update);
+		break;
+	case GUPNP_CDS_LAST_CHANGE_EVENT_ST_DONE:
+		state = g_variant_new("(ou)", path, update_id);
+		break;
+	case GUPNP_CDS_LAST_CHANGE_EVENT_INVALID:
+		break;
+	default:
+		break;
+	}
+
+	if (state)
+		g_variant_builder_add(array, "{sv}", key[event - 1], state);
+
+	g_free(path);
+	g_free(parent_path);
+}
+
+static void prv_last_change_cb(GUPnPServiceProxy *proxy,
+			       const char *variable,
+			       GValue *value,
+			       gpointer user_data)
+{
+	const gchar *last_change;
+	GVariantBuilder array;
+	GVariant *val;
+	msu_device_t *device = user_data;
+	GUPnPCDSLastChangeParser *parser;
+	GList *list;
+	GList *next;
+	GError *error = NULL;
+
+	last_change = g_value_get_string(value);
+
+	MSU_LOG_DEBUG_NL();
+	MSU_LOG_DEBUG("LastChange XML: %s", last_change);
+	MSU_LOG_DEBUG_NL();
+
+	g_variant_builder_init(&array, G_VARIANT_TYPE("a{sv}"));
+	parser = gupnp_cds_last_change_parser_new();
+	list = gupnp_cds_last_change_parser_parse(parser, last_change, &error);
+
+	if (error != NULL) {
+		MSU_LOG_WARNING(
+			"gupnp_cds_last_change_parser_parse parsing failed: %s",
+			error->message);
+		goto on_error;
+	}
+
+	next = list;
+	while (next) {
+		prv_last_change_decode(next->data, &array, device->path);
+		gupnp_cds_last_change_entry_unref(next->data);
+		next = g_list_next(next);
+	}
+
+	val = g_variant_new("(@a{sv})", g_variant_builder_end(&array));
+
+	(void) g_dbus_connection_emit_signal(
+					device->connection,
+					NULL,
+					device->path,
+					MSU_INTERFACE_MEDIA_DEVICE,
+					MSU_INTERFACE_ESV_LAST_CHANGE,
+					val,
+					NULL);
+
+on_error:
+
+	g_list_free(list);
+	g_object_unref(parser);
+
+	if (error != NULL)
+		g_error_free(error);
 }
 
 static void prv_build_container_update_array(const gchar *root_path,
@@ -340,6 +465,10 @@ static void prv_subscription_lost_cb(GUPnPServiceProxy *proxy,
 						  MSU_CONTAINER_UPDATE_VAR,
 						  prv_container_update_cb,
 						  context->device);
+		gupnp_service_proxy_remove_notify(context->service_proxy,
+						  MSU_LAST_CHANGE_VAR,
+						  prv_last_change_cb,
+						  context->device);
 
 		context->timeout_id = 0;
 		context->subscribed = FALSE;
@@ -365,6 +494,12 @@ void msu_device_subscribe_to_contents_change(msu_device_t *device)
 				       MSU_CONTAINER_UPDATE_VAR,
 				       G_TYPE_STRING,
 				       prv_container_update_cb,
+				       device);
+
+	gupnp_service_proxy_add_notify(context->service_proxy,
+				       MSU_LAST_CHANGE_VAR,
+				       G_TYPE_STRING,
+				       prv_last_change_cb,
 				       device);
 
 	context->subscribed = TRUE;
@@ -3872,7 +4007,7 @@ on_error:
 		g_error_free(error);
 
 	g_free(result);
- }
+}
 
 static GUPnPServiceProxyAction *prv_create_didls_item_browse(
 							msu_chain_task_t *chain,
