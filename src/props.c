@@ -276,6 +276,15 @@ void msu_prop_maps_new(GHashTable **property_map, GHashTable **filter_map)
 	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_SIZE, prop_t);
 	g_hash_table_insert(p_map, "res@size", MSU_INTERFACE_PROP_SIZE);
 
+	/* res@updateCount */
+	prop_t = prv_msu_prop_map_new("res@updateCount",
+				      MSU_UPNP_MASK_PROP_UPDATE_COUNT,
+				      TRUE, TRUE, FALSE);
+	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_UPDATE_COUNT,
+			    prop_t);
+	g_hash_table_insert(p_map, "res@updateCount",
+			    MSU_INTERFACE_PROP_UPDATE_COUNT);
+
 	/* upnp:album */
 	prop_t = prv_msu_prop_map_new("upnp:album",
 					MSU_UPNP_MASK_PROP_ALBUM,
@@ -312,6 +321,15 @@ void msu_prop_maps_new(GHashTable **property_map, GHashTable **filter_map)
 	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_TYPE, prop_t);
 	g_hash_table_insert(p_map, "upnp:class", MSU_INTERFACE_PROP_TYPE);
 
+	/* upnp:containerUpdateID */
+	prop_t = prv_msu_prop_map_new("upnp:containerUpdateID",
+				      MSU_UPNP_MASK_PROP_CONTAINER_UPDATE_ID,
+				      TRUE, TRUE, FALSE);
+	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_CONTAINER_UPDATE_ID,
+			    prop_t);
+	g_hash_table_insert(p_map, "upnp:containerUpdateID",
+			    MSU_INTERFACE_PROP_CONTAINER_UPDATE_ID);
+
 	/* upnp:createClass */
 	prop_t = prv_msu_prop_map_new("upnp:createClass",
 					MSU_UPNP_MASK_PROP_CREATE_CLASSES,
@@ -325,23 +343,6 @@ void msu_prop_maps_new(GHashTable **property_map, GHashTable **filter_map)
 	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_GENRE, prop_t);
 	g_hash_table_insert(p_map, "upnp:genre", MSU_INTERFACE_PROP_GENRE);
 
-	/* upnp:originalTrackNumber */
-	prop_t = prv_msu_prop_map_new("upnp:originalTrackNumber",
-					MSU_UPNP_MASK_PROP_TRACK_NUMBER,
-					TRUE, TRUE, TRUE);
-	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_TRACK_NUMBER, prop_t);
-	g_hash_table_insert(p_map, "upnp:originalTrackNumber",
-			    MSU_INTERFACE_PROP_TRACK_NUMBER);
-
-	/* res@updateCount */
-	prop_t = prv_msu_prop_map_new("res@updateCount",
-				      MSU_UPNP_MASK_PROP_UPDATE_COUNT,
-				      TRUE, TRUE, FALSE);
-	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_UPDATE_COUNT,
-			    prop_t);
-	g_hash_table_insert(p_map, "res@updateCount",
-			    MSU_INTERFACE_PROP_UPDATE_COUNT);
-
 	/* upnp:objectUpdateID */
 	prop_t = prv_msu_prop_map_new("upnp:objectUpdateID",
 				      MSU_UPNP_MASK_PROP_OBJECT_UPDATE_ID,
@@ -350,14 +351,13 @@ void msu_prop_maps_new(GHashTable **property_map, GHashTable **filter_map)
 	g_hash_table_insert(p_map, "upnp:objectUpdateID",
 			    MSU_INTERFACE_PROP_OBJECT_UPDATE_ID);
 
-	/* upnp:containerUpdateID */
-	prop_t = prv_msu_prop_map_new("upnp:containerUpdateID",
-				      MSU_UPNP_MASK_PROP_CONTAINER_UPDATE_ID,
-				      TRUE, TRUE, FALSE);
-	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_CONTAINER_UPDATE_ID,
-			    prop_t);
-	g_hash_table_insert(p_map, "upnp:containerUpdateID",
-			    MSU_INTERFACE_PROP_CONTAINER_UPDATE_ID);
+	/* upnp:originalTrackNumber */
+	prop_t = prv_msu_prop_map_new("upnp:originalTrackNumber",
+					MSU_UPNP_MASK_PROP_TRACK_NUMBER,
+					TRUE, TRUE, TRUE);
+	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_TRACK_NUMBER, prop_t);
+	g_hash_table_insert(p_map, "upnp:originalTrackNumber",
+			    MSU_INTERFACE_PROP_TRACK_NUMBER);
 
 	/* upnp:totalDeletedChildCount */
 	prop_t = prv_msu_prop_map_new("upnp:totalDeletedChildCount",
