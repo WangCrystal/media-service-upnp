@@ -18,7 +18,6 @@
 # Regis Merlino <regis.merlino@intel.com>
 #
 
-import sys
 import gobject
 import dbus
 import dbus.mainloop.glib
@@ -70,9 +69,9 @@ dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 bus = dbus.SessionBus()
 root = dbus.Interface(bus.get_object(
-                'com.intel.media-service-upnp',
-                '/com/intel/MediaServiceUPnP/server/0'),
-            'org.gnome.UPnP.MediaContainer2')
+        'com.intel.media-service-upnp',
+        '/com/intel/MediaServiceUPnP/server/0'),
+                      'org.gnome.UPnP.MediaContainer2')
 
 gobject.timeout_add(1000, make_async_call)
 
