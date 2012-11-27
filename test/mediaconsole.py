@@ -50,10 +50,10 @@ class MediaObject(object):
 
     def print_dms_id(self):
         path = self.__propsIF.Get("", "Path")
-        id = path[path.rfind("/") + 1:]
+        dms_id = path[path.rfind("/") + 1:]
         i = 0
-        while i +1 < len(id):
-            num = id[i] + id[i+1]
+        while i+1 < len(dms_id):
+            num = dms_id[i] + dms_id[i+1]
             sys.stdout.write(unichr(int(num, 16)))
             i = i + 2
         print
@@ -180,7 +180,7 @@ class UPNP(object):
                 server = Container(i)
                 try:
                     folderName = server.get_prop("FriendlyName");
-                except e,Exception:
+                except Exception:
                     folderName = server.get_prop("DisplayName");
                 print u'{0:<30}{1:<30}'.format(folderName , i)
             except dbus.exceptions.DBusException, err:
