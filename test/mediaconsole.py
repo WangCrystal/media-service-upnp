@@ -33,8 +33,8 @@ class MediaObject(object):
                 'com.intel.media-service-upnp', path),
                                         'org.freedesktop.DBus.Properties')
         self.__objIF = dbus.Interface(bus.get_object(
-        'com.intel.media-service-upnp', path),
-                                'org.gnome.UPnP.MediaObject2')
+                'com.intel.media-service-upnp', path),
+                                      'org.gnome.UPnP.MediaObject2')
 
     def get_props(self, iface = ""):
         return self.__propsIF.GetAll(iface)
@@ -70,11 +70,11 @@ class Item(MediaObject):
         bus = dbus.SessionBus()
         self.__itemIF = dbus.Interface(bus.get_object(
                 'com.intel.media-service-upnp', path),
-                                        'org.gnome.UPnP.MediaItem2')
+                                       'org.gnome.UPnP.MediaItem2')
 
     def print_compatible_resource(self, protocol_info, fltr):
         print_properties(self.__itemIF.GetCompatibleResource(protocol_info,
-                                        fltr))
+                                                             fltr))
 
 class Container(MediaObject):
 
@@ -83,7 +83,7 @@ class Container(MediaObject):
         bus = dbus.SessionBus()
         self.__containerIF = dbus.Interface(bus.get_object(
                 'com.intel.media-service-upnp', path),
-                                        'org.gnome.UPnP.MediaContainer2')
+                                            'org.gnome.UPnP.MediaContainer2')
 
     def list_children(self, offset, count, fltr, sort=""):
         objects = self.__containerIF.ListChildrenEx(offset, count, fltr, sort)
@@ -137,7 +137,7 @@ class Device(Container):
         bus = dbus.SessionBus()
         self.__deviceIF = dbus.Interface(bus.get_object(
                 'com.intel.media-service-upnp', path),
-                                        'com.intel.UPnP.MediaDevice')
+                                         'com.intel.UPnP.MediaDevice')
 
     def upload_to_any(self, name, file_path):
         (tid, path) = self.__deviceIF.UploadToAnyContainer(name, file_path)
@@ -146,7 +146,7 @@ class Device(Container):
 
     def create_container_in_any(self, name, type, child_types):
         path = self.__deviceIF.CreateContainerInAnyContainer(name, type,
-                                                                    child_types)
+                                                             child_types)
         print "New container path: " + path
 
     def get_upload_status(self, id):
