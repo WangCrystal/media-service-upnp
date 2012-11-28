@@ -22,6 +22,10 @@
 
 #include <string.h>
 #include <libgupnp/gupnp-error.h>
+
+#include <libgupnp-dlna/gupnp-dlna-profile.h>
+#include <libgupnp-dlna/gupnp-dlna-profile-guesser.h>
+
 #include <libsoup/soup.h>
 
 #include "chain-task.h"
@@ -2553,6 +2557,57 @@ static gchar *prv_create_new_container_didl(const gchar *parent_id,
 	return retval;
 }
 
+static const gchar *prv_get_dlna_profile_name(const gchar *filename)
+{
+	gchar *uri;
+	GError *error = NULL;
+	const gchar *profile_name = NULL;
+	GUPnPDLNAProfile *profile;
+	GUPnPDLNAProfileGuesser *guesser;
+	gboolean relaxed_mode = TRUE;
+	gboolean extended_mode = TRUE;
+
+	guesser = gupnp_dlna_profile_guesser_new(relaxed_mode, extended_mode);
+
+	uri = g_filename_to_uri(filename, NULL, &error);
+	if (uri == NULL) {
+		MSU_LOG_WARNING("Unable to convert filename: %s", filename);
+
+		if (error) {
+			MSU_LOG_WARNING("Error: %s", error->message);
+
+			g_error_free(error);
+		}
+
+		goto on_error;
+	}
+
+	profile = gupnp_dlna_profile_guesser_guess_profile_sync(guesser,
+								uri,
+								5000,
+								&error);
+	if (profile == NULL) {
+		MSU_LOG_WARNING("Unable to guess profile for URI: %s", uri);
+
+		if (error) {
+			MSU_LOG_WARNING("Error: %s", error->message);
+
+			g_error_free(error);
+		}
+
+		goto on_error;
+	}
+
+	profile_name = gupnp_dlna_profile_get_name(profile);
+
+on_error:
+	g_object_unref(guesser);
+
+	g_free(uri);
+
+	return profile_name;
+}
+
 static gchar *prv_create_upload_didl(const gchar *parent_id, msu_task_t *task,
 				     const gchar *object_class,
 				     const gchar *mime_type)
@@ -2562,6 +2617,7 @@ static gchar *prv_create_upload_didl(const gchar *parent_id, msu_task_t *task,
 	gchar *retval;
 	GUPnPProtocolInfo *protocol_info;
 	GUPnPDIDLLiteResource *res;
+	const gchar *profile;
 
 	writer = gupnp_didl_lite_writer_new(NULL);
 	item = GUPNP_DIDL_LITE_OBJECT(gupnp_didl_lite_writer_add_item(writer));
@@ -2577,10 +2633,12 @@ static gchar *prv_create_upload_didl(const gchar *parent_id, msu_task_t *task,
 	gupnp_protocol_info_set_protocol(protocol_info, "*");
 	gupnp_protocol_info_set_network(protocol_info, "*");
 
+	profile = prv_get_dlna_profile_name(task->ut.upload.file_path);
+	if (profile != NULL)
+		gupnp_protocol_info_set_dlna_profile(protocol_info, profile);
+
 	res = gupnp_didl_lite_object_add_resource(item);
 	gupnp_didl_lite_resource_set_protocol_info(res, protocol_info);
-
-	/* TODO: Need to compute DLNA Profile */
 
 	retval = gupnp_didl_lite_writer_get_string(writer);
 
