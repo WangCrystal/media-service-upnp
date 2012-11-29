@@ -47,7 +47,9 @@ enum msu_task_type_t_ {
 	MSU_TASK_DELETE_OBJECT,
 	MSU_TASK_CREATE_CONTAINER,
 	MSU_TASK_CREATE_CONTAINER_IN_ANY,
-	MSU_TASK_UPDATE_OBJECT
+	MSU_TASK_UPDATE_OBJECT,
+	MSU_TASK_CREATE_PLAYLIST,
+	MSU_TASK_CREATE_PLAYLIST_IN_ANY
 };
 typedef enum msu_task_type_t_ msu_task_type_t;
 
@@ -124,6 +126,15 @@ struct msu_task_update_t_ {
 	GVariant *to_delete;
 };
 
+typedef struct msu_task_create_playlist_t_ msu_task_create_playlist_t;
+struct msu_task_create_playlist_t_ {
+	gchar *title;
+	gchar *creator;
+	gchar *genre;
+	gchar *desc;
+	GVariant *item_path;
+};
+
 typedef struct msu_task_target_info_t_ msu_task_target_info_t;
 struct msu_task_target_info_t_ {
 	gchar *path;
@@ -154,6 +165,7 @@ struct msu_task_t_ {
 		msu_task_upload_action_t upload_action;
 		msu_task_create_container_t create_container;
 		msu_task_update_t update;
+		msu_task_create_playlist_t playlist;
 	} ut;
 };
 
@@ -214,6 +226,11 @@ msu_task_t *msu_task_create_container_new_generic(
 					const gchar *path,
 					GVariant *parameters,
 					GError **error);
+msu_task_t *msu_task_create_playlist_new(GDBusMethodInvocation *invocation,
+					 msu_task_type_t type,
+					 const gchar *path,
+					 GVariant *parameters,
+					 GError **error);
 msu_task_t *msu_task_update_new(GDBusMethodInvocation *invocation,
 				const gchar *path, GVariant *parameters,
 				GError **error);

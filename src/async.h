@@ -24,11 +24,14 @@
 #define MSU_ASYNC_H__
 
 #include <libgupnp/gupnp-control-point.h>
+#include <libgupnp-av/gupnp-media-collection.h>
 
 #include "media-service-upnp.h"
+#include "chain-task.h"
 #include "task.h"
 #include "upnp.h"
 
+typedef struct msu_device_context_t_ msu_device_context_t;
 typedef struct msu_async_cb_data_t_ msu_async_cb_data_t;
 typedef guint64 msu_upnp_prop_mask;
 
@@ -74,6 +77,14 @@ struct msu_async_update_t_ {
 	GHashTable *map;
 };
 
+typedef struct msu_async_playlist_t_ msu_async_playlist_t;
+struct msu_async_playlist_t_ {
+	msu_chain_task_t *chain;
+	msu_device_context_t *context;
+	GUPnPMediaCollection *collection;
+	gchar *didl;
+};
+
 struct msu_async_cb_data_t_ {
 	msu_task_type_t type;
 	msu_task_t *task;
@@ -90,6 +101,7 @@ struct msu_async_cb_data_t_ {
 		msu_async_get_all_t get_all;
 		msu_async_upload_t upload;
 		msu_async_update_t update;
+		msu_async_playlist_t playlist;
 	} ut;
 };
 

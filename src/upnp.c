@@ -1069,3 +1069,111 @@ on_error:
 
 	MSU_LOG_DEBUG("Exit");
 }
+
+void msu_upnp_create_playlist(msu_upnp_t *upnp, msu_client_t *client,
+			      msu_task_t *task,
+			      GCancellable *cancellable,
+			      msu_upnp_task_complete_t cb)
+{
+	msu_async_cb_data_t *cb_data;
+	msu_task_create_playlist_t *task_data;
+
+	MSU_LOG_DEBUG("Enter");
+
+	cb_data = msu_async_cb_data_new(task, cb);
+	task_data = &task->ut.playlist;
+
+	MSU_LOG_DEBUG("Root Path: %s - Id: %s", task->target.root_path,
+		      task->target.id);
+
+	if (!task_data->title || !*task_data->title)
+		goto on_param_error;
+
+	if (!g_variant_n_children(task_data->item_path))
+		goto on_param_error;
+
+	MSU_LOG_DEBUG_NL();
+	MSU_LOG_DEBUG("Title = %s", task_data->title);
+	MSU_LOG_DEBUG("Creator = %s", task_data->creator);
+	MSU_LOG_DEBUG("Genre = %s", task_data->genre);
+	MSU_LOG_DEBUG("Desc = %s", task_data->desc);
+	MSU_LOG_DEBUG_NL();
+
+	msu_device_playlist_upload(client, task, task->target.id, cb_data,
+				   cancellable);
+
+	MSU_LOG_DEBUG("Exit");
+
+	return;
+
+on_param_error:
+
+	MSU_LOG_WARNING("Invalid Parameter");
+
+	cb_data->error = g_error_new(MSU_ERROR,
+				     MSU_ERROR_OPERATION_FAILED,
+				     "Invalid Parameter");
+
+	(void) g_idle_add(msu_async_complete_task, cb_data);
+
+	MSU_LOG_DEBUG("Exit failure");
+}
+
+void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
+				     msu_task_t *task,
+				     GCancellable *cancellable,
+				     msu_upnp_task_complete_t cb)
+{
+	msu_async_cb_data_t *cb_data;
+	msu_task_create_playlist_t *task_data;
+
+	MSU_LOG_DEBUG("Enter");
+
+	cb_data = msu_async_cb_data_new(task, cb);
+	task_data = &task->ut.playlist;
+
+	MSU_LOG_DEBUG("Root Path: %s - Id: %s", task->target.root_path,
+		      task->target.id);
+
+	if (strcmp(task->target.id, "0")) {
+		MSU_LOG_WARNING("Bad path %s", task->target.path);
+
+		cb_data->error = g_error_new(MSU_ERROR, MSU_ERROR_BAD_PATH,
+					     "CreatePlayListInAny must be executed on a root path");
+
+		goto on_error;
+	}
+
+	if (!task_data->title || !*task_data->title)
+		goto on_param_error;
+
+	if (!g_variant_n_children(task_data->item_path))
+		goto on_param_error;
+
+	MSU_LOG_DEBUG_NL();
+	MSU_LOG_DEBUG("Title = %s", task_data->title);
+	MSU_LOG_DEBUG("Creator = %s", task_data->creator);
+	MSU_LOG_DEBUG("Genre = %s", task_data->genre);
+	MSU_LOG_DEBUG("Desc = %s", task_data->desc);
+	MSU_LOG_DEBUG_NL();
+
+	msu_device_playlist_upload(client, task, "DLNA.ORG_AnyContainer",
+				   cb_data, cancellable);
+
+	MSU_LOG_DEBUG("Exit");
+
+	return;
+
+on_param_error:
+
+	MSU_LOG_WARNING("Invalid Parameter");
+
+	cb_data->error = g_error_new(MSU_ERROR,
+				     MSU_ERROR_OPERATION_FAILED,
+				     "Invalid Parameter");
+on_error:
+
+	(void) g_idle_add(msu_async_complete_task, cb_data);
+
+	MSU_LOG_DEBUG("Exit failure");
+}

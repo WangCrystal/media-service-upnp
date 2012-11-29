@@ -104,7 +104,7 @@ gpointer *msu_chain_task_get_user_data(msu_chain_task_t *chain)
 void msu_chain_task_cancel(msu_chain_task_t *chain)
 {
 	msu_device_t *device;
-	msu_device_context_t *context;
+	msu_device_context_t *context = NULL;
 
 	if (chain->idle_id) {
 		g_source_remove(chain->idle_id);
@@ -112,9 +112,11 @@ void msu_chain_task_cancel(msu_chain_task_t *chain)
 	}
 
 	device = msu_chain_task_get_device(chain);
-	context = msu_device_get_context(device, NULL);
 
-	if (chain->current->p_action) {
+	if (device != NULL)
+		context = msu_device_get_context(device, NULL);
+
+	if (context && chain->current->p_action) {
 		gupnp_service_proxy_cancel_action(context->service_proxy,
 						  chain->current->p_action);
 		chain->current->p_action = 0;

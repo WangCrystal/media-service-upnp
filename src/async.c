@@ -58,6 +58,14 @@ void msu_async_cb_data_delete(msu_async_cb_data_t *cb_data)
 			g_free(cb_data->ut.update.current_tag_value);
 			g_free(cb_data->ut.update.new_tag_value);
 			break;
+		case MSU_TASK_CREATE_PLAYLIST:
+		case MSU_TASK_CREATE_PLAYLIST_IN_ANY:
+			g_free(cb_data->ut.playlist.didl);
+			if (cb_data->ut.playlist.chain)
+				msu_chain_task_delete(
+					cb_data->ut.playlist.chain);
+			if (cb_data->ut.playlist.collection)
+				g_object_unref(cb_data->ut.playlist.collection);
 		default:
 			break;
 		}

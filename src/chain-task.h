@@ -24,7 +24,8 @@
 #define MSU_CHAIN_TASK_H__
 
 #include <libgupnp/gupnp-service-proxy.h>
-#include "async.h"
+
+#include "media-service-upnp.h"
 
 typedef struct msu_chain_task_t_ msu_chain_task_t;
 

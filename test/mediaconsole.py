@@ -124,11 +124,17 @@ class Container(MediaObject):
     def upload(self, name, file_path):
         (tid, path) = self._containerIF.Upload(name, file_path)
         print "Transfer ID: " + str(tid)
-        print "Path: " + path
+        print u"Path: " + path
 
     def create_container(self, name, type, child_types):
         path = self._containerIF.CreateContainer(name, type, child_types)
-        print "New container path: " + path
+        print u"New container path: " + path
+
+    def create_playlist(self, title, items, creator="", genre="", desc=""):
+        (tid, path) = self._containerIF.CreatePlaylist(title, creator, genre,
+                                                       desc, items)
+        print "Transfer ID: " + str(tid)
+        print u"Path: " + path
 
 class Device(Container):
 
@@ -142,12 +148,12 @@ class Device(Container):
     def upload_to_any(self, name, file_path):
         (tid, path) = self._deviceIF.UploadToAnyContainer(name, file_path)
         print "Transfer ID: " + str(tid)
-        print "Path: " + path
+        print u"Path: " + path
 
     def create_container_in_any(self, name, type, child_types):
         path = self._deviceIF.CreateContainerInAnyContainer(name, type,
                                                              child_types)
-        print "New container path: " + path
+        print u"New container path: " + path
 
     def get_upload_status(self, id):
         (status, length, total) = self._deviceIF.GetUploadStatus(id)
@@ -164,6 +170,16 @@ class Device(Container):
 
     def cancel(self):
         return self._deviceIF.Cancel()
+
+    def create_playlist_in_any(self, title, items, creator="", genre="", desc=""):
+        (tid, path) = self._deviceIF.CreatePlaylistInAnyContainer(title,
+                                                                  creator,
+                                                                  genre,
+                                                                  desc,
+                                                                  items)
+        print "Transfer ID: " + str(tid)
+        print u"Path: " + path
+
 
 class UPNP(object):
 

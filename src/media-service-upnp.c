@@ -254,6 +254,22 @@ static const gchar g_msu_server_introspection[] =
 	"      <arg type='o' name='"MSU_INTERFACE_PATH"'"
 	"           direction='out'/>"
 	"    </method>"
+	"    <method name='"MSU_INTERFACE_CREATE_PLAYLIST"'>"
+	"      <arg type='s' name='"MSU_INTERFACE_TITLE"'"
+	"           direction='in'/>"
+	"      <arg type='s' name='"MSU_INTERFACE_CREATOR"'"
+	"           direction='in'/>"
+	"      <arg type='s' name='"MSU_INTERFACE_GENRE"'"
+	"           direction='in'/>"
+	"      <arg type='s' name='"MSU_INTERFACE_DESCRIPTION"'"
+	"           direction='in'/>"
+	"      <arg type='ao' name='"MSU_INTERFACE_PLAYLIST_ITEMS"'"
+	"           direction='in'/>"
+	"      <arg type='u' name='"MSU_INTERFACE_UPLOAD_ID"'"
+	"           direction='out'/>"
+	"      <arg type='o' name='"MSU_INTERFACE_PATH"'"
+	"           direction='out'/>"
+	"    </method>"
 	"    <property type='u' name='"MSU_INTERFACE_PROP_CHILD_COUNT"'"
 	"       access='read'/>"
 	"    <property type='b' name='"MSU_INTERFACE_PROP_SEARCHABLE"'"
@@ -356,6 +372,22 @@ static const gchar g_msu_server_introspection[] =
 	"           direction='out'/>"
 	"    </method>"
 	"    <method name='"MSU_INTERFACE_CANCEL"'>"
+	"    </method>"
+	"    <method name='"MSU_INTERFACE_CREATE_PLAYLIST_TO_ANY"'>"
+	"      <arg type='s' name='"MSU_INTERFACE_TITLE"'"
+	"           direction='in'/>"
+	"      <arg type='s' name='"MSU_INTERFACE_CREATOR"'"
+	"           direction='in'/>"
+	"      <arg type='s' name='"MSU_INTERFACE_GENRE"'"
+	"           direction='in'/>"
+	"      <arg type='s' name='"MSU_INTERFACE_DESCRIPTION"'"
+	"           direction='in'/>"
+	"      <arg type='ao' name='"MSU_INTERFACE_PLAYLIST_ITEMS"'"
+	"           direction='in'/>"
+	"      <arg type='u' name='"MSU_INTERFACE_UPLOAD_ID"'"
+	"           direction='out'/>"
+	"      <arg type='o' name='"MSU_INTERFACE_PATH"'"
+	"           direction='out'/>"
 	"    </method>"
 	"    <property type='s' name='"MSU_INTERFACE_PROP_LOCATION"'"
 	"       access='read'/>"
@@ -522,28 +554,23 @@ static void prv_process_async_task(msu_task_t *task, GCancellable **cancellable)
 	switch (task->type) {
 	case MSU_TASK_GET_CHILDREN:
 		msu_upnp_get_children(g_context.upnp, client, task,
-				      *cancellable,
-				      prv_async_task_complete);
+				      *cancellable, prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_PROP:
 		msu_upnp_get_prop(g_context.upnp, client, task,
-				  *cancellable,
-				  prv_async_task_complete);
+				  *cancellable, prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_ALL_PROPS:
 		msu_upnp_get_all_props(g_context.upnp, client, task,
-				       *cancellable,
-				       prv_async_task_complete);
+				       *cancellable, prv_async_task_complete);
 		break;
 	case MSU_TASK_SEARCH:
 		msu_upnp_search(g_context.upnp, client, task,
-				*cancellable,
-				prv_async_task_complete);
+				*cancellable, prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_RESOURCE:
 		msu_upnp_get_resource(g_context.upnp, client, task,
-				      *cancellable,
-				      prv_async_task_complete);
+				      *cancellable, prv_async_task_complete);
 		break;
 	case MSU_TASK_UPLOAD_TO_ANY:
 		msu_upnp_upload_to_any(g_context.upnp, client, task,
@@ -552,13 +579,11 @@ static void prv_process_async_task(msu_task_t *task, GCancellable **cancellable)
 		break;
 	case MSU_TASK_UPLOAD:
 		msu_upnp_upload(g_context.upnp, client, task,
-				*cancellable,
-				prv_async_task_complete);
+				*cancellable, prv_async_task_complete);
 		break;
 	case MSU_TASK_DELETE_OBJECT:
 		msu_upnp_delete_object(g_context.upnp, client, task,
-				       *cancellable,
-				       prv_async_task_complete);
+				       *cancellable, prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_CONTAINER:
 		msu_upnp_create_container(g_context.upnp, client, task,
@@ -572,8 +597,16 @@ static void prv_process_async_task(msu_task_t *task, GCancellable **cancellable)
 		break;
 	case MSU_TASK_UPDATE_OBJECT:
 		msu_upnp_update_object(g_context.upnp, client, task,
-				       *cancellable,
-				       prv_async_task_complete);
+				       *cancellable, prv_async_task_complete);
+		break;
+	case MSU_TASK_CREATE_PLAYLIST:
+		msu_upnp_create_playlist(g_context.upnp, client, task,
+					 *cancellable, prv_async_task_complete);
+		break;
+	case MSU_TASK_CREATE_PLAYLIST_IN_ANY:
+		msu_upnp_create_playlist_in_any(g_context.upnp, client, task,
+						*cancellable,
+						prv_async_task_complete);
 		break;
 	default:
 		break;
@@ -995,6 +1028,10 @@ static void prv_con_method_call(GDBusConnection *conn,
 		task = msu_task_create_container_new_generic(invocation,
 						MSU_TASK_CREATE_CONTAINER,
 						object, parameters, &error);
+	else if (!strcmp(method, MSU_INTERFACE_CREATE_PLAYLIST))
+		task = msu_task_create_playlist_new(invocation,
+						    MSU_TASK_CREATE_PLAYLIST,
+						    object, parameters, &error);
 	else
 		goto finished;
 
@@ -1064,7 +1101,8 @@ static void prv_device_method_call(GDBusConnection *conn,
 		task = msu_task_upload_to_any_new(invocation, object,
 						  parameters, &error);
 	} else if (!strcmp(method, MSU_INTERFACE_CREATE_CONTAINER_IN_ANY)) {
-		task = msu_task_create_container_new_generic(invocation,
+		task = msu_task_create_container_new_generic(
+					invocation,
 					MSU_TASK_CREATE_CONTAINER_IN_ANY,
 					object, parameters, &error);
 	} else if (!strcmp(method, MSU_INTERFACE_GET_UPLOAD_STATUS)) {
@@ -1075,6 +1113,11 @@ static void prv_device_method_call(GDBusConnection *conn,
 	} else if (!strcmp(method, MSU_INTERFACE_CANCEL_UPLOAD)) {
 		task = msu_task_cancel_upload_new(invocation, object,
 						  parameters, &error);
+	} else if (!strcmp(method, MSU_INTERFACE_CREATE_PLAYLIST_TO_ANY)) {
+		task = msu_task_create_playlist_new(
+						invocation,
+						MSU_TASK_CREATE_PLAYLIST_IN_ANY,
+						object, parameters, &error);
 	} else if (!strcmp(method, MSU_INTERFACE_CANCEL)) {
 		task = NULL;
 

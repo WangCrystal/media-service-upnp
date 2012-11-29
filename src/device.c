@@ -22,9 +22,9 @@
 
 #include <string.h>
 #include <libgupnp/gupnp-error.h>
-
 #include <libgupnp-dlna/gupnp-dlna-profile.h>
 #include <libgupnp-dlna/gupnp-dlna-profile-guesser.h>
+#include <libgupnp-av/gupnp-media-collection.h>
 
 #include <libsoup/soup.h>
 
@@ -67,6 +67,8 @@ struct msu_device_upload_t_ {
 	SoupSession *soup_session;
 	SoupMessage *msg;
 	GMappedFile *mapped_file;
+	gchar *body;
+	gsize body_length;
 	const gchar *status;
 	guint64 bytes_uploaded;
 	guint64 bytes_to_upload;
@@ -86,6 +88,13 @@ struct prv_new_device_ct_t_ {
 	const GDBusSubtreeVTable *vtable;
 	void *user_data;
 	GHashTable *property_map;
+};
+
+typedef struct prv_new_playlist_ct_t_ prv_new_playlist_ct_t;
+struct prv_new_playlist_ct_t_ {
+	msu_async_cb_data_t *cb_data;
+	gchar *id;
+	gchar *parent_id;
 };
 
 static void prv_get_child_count(msu_async_cb_data_t *cb_data,
@@ -2811,6 +2820,9 @@ static void prv_post_finished(SoupSession *session, SoupMessage *msg,
 		g_mapped_file_unref(upload->mapped_file);
 		upload->mapped_file = NULL;
 
+		g_free(upload->body);
+		upload->body = NULL;
+
 		upload_id = g_new(gint, 1);
 		*upload_id = upload_job->upload_id;
 
@@ -2846,6 +2858,8 @@ static void prv_msu_device_upload_delete(gpointer up)
 
 		if (upload->mapped_file)
 			g_mapped_file_unref(upload->mapped_file);
+		else if (upload->body)
+			g_free(upload->body);
 
 		g_free(upload);
 	}
@@ -2863,34 +2877,43 @@ static void prv_post_bytes_written(SoupMessage *msg, SoupBuffer *chunk,
 		upload->bytes_uploaded = upload->bytes_to_upload;
 }
 
-static msu_device_upload_t *prv_msu_device_upload_new(const gchar *file_path,
-						      const gchar *import_uri,
-						      const gchar *mime_type,
-						      GError **error)
+static msu_device_upload_t *prv_upload_data_new(const gchar *file_path,
+						gchar *body,
+						gsize body_length,
+						const gchar *import_uri,
+						const gchar *mime_type,
+						GError **error)
 {
-	const char *body;
-	gsize body_length;
-	msu_device_upload_t *upload;
+	msu_device_upload_t *upload = NULL;
+	GMappedFile *mapped_file = NULL;
+	gchar *up_body = body;
+	gsize up_body_length = body_length;
 
 	MSU_LOG_DEBUG("Enter");
 
-	upload = g_new0(msu_device_upload_t, 1);
+	if (file_path) {
+		mapped_file = g_mapped_file_new(file_path, FALSE, NULL);
+		if (!mapped_file) {
+			MSU_LOG_WARNING("Unable to map %s into memory",
+					file_path);
 
-	upload->mapped_file = g_mapped_file_new(file_path, FALSE, NULL);
-	if (!upload->mapped_file) {
-		MSU_LOG_WARNING("Unable to map %s into memory", file_path);
+			*error = g_error_new(MSU_ERROR, MSU_ERROR_IO,
+					     "Unable to map %s into memory",
+					     file_path);
+			goto on_error;
+		}
 
-		*error = g_error_new(MSU_ERROR, MSU_ERROR_IO,
-				     "Unable to map %s into memory",
-				     file_path);
-		goto on_error;
+		up_body = g_mapped_file_get_contents(mapped_file);
+		up_body_length = g_mapped_file_get_length(mapped_file);
 	}
 
-	body = g_mapped_file_get_contents(upload->mapped_file);
-	body_length = g_mapped_file_get_length(upload->mapped_file);
+	upload = g_new0(msu_device_upload_t, 1);
 
 	upload->soup_session = soup_session_async_new();
 	upload->msg = soup_message_new("POST", import_uri);
+	upload->mapped_file = mapped_file;
+	upload->body = body;
+	upload->body_length = body_length;
 
 	if (!upload->msg) {
 		MSU_LOG_WARNING("Invalid URI %s", import_uri);
@@ -2899,14 +2922,15 @@ static msu_device_upload_t *prv_msu_device_upload_new(const gchar *file_path,
 				     "Invalid URI %s", import_uri);
 		goto on_error;
 	}
+
 	upload->status = MSU_UPLOAD_STATUS_IN_PROGRESS;
-	upload->bytes_to_upload = body_length;
+	upload->bytes_to_upload = up_body_length;
 
 	soup_message_headers_set_expectations(upload->msg->request_headers,
 					      SOUP_EXPECTATION_CONTINUE);
 
 	soup_message_set_request(upload->msg, mime_type, SOUP_MEMORY_STATIC,
-				 body, body_length);
+				 up_body, up_body_length);
 	g_signal_connect(upload->msg, "wrote-body-data",
 			 G_CALLBACK(prv_post_bytes_written), upload);
 
@@ -2975,62 +2999,65 @@ on_error:
 	MSU_LOG_DEBUG("Exit");
 }
 
-static void prv_create_object_cb(GUPnPServiceProxy *proxy,
-				 GUPnPServiceProxyAction *action,
-				 gpointer user_data)
+static void prv_generic_upload_cb(msu_async_cb_data_t *cb_data,
+				  char *file_path,
+				  gchar *body,
+				  gsize body_length,
+				  const gchar *mime_type)
 {
-	gchar *result = NULL;
-	GUPnPDIDLLiteParser *parser = NULL;
-	GError *upnp_error = NULL;
-	msu_async_cb_data_t *cb_data = user_data;
-	msu_async_upload_t *cb_task_data = &cb_data->ut.upload;
-	gchar *import_uri = NULL;
 	gchar *object_id = NULL;
-	gboolean delete_needed = FALSE;
-	GVariant *out_params[2];
+	gchar *result = NULL;
+	gchar *import_uri = NULL;
 	gchar *object_path;
-	msu_device_upload_t *upload;
+	GError *error = NULL;
+	gboolean delete_needed = FALSE;
 	gint *upload_id;
+	GUPnPDIDLLiteParser *parser = NULL;
+	GVariant *out_p[2];
+	msu_device_upload_t *upload;
 	msu_device_upload_job_t *upload_job;
 
 	MSU_LOG_DEBUG("Enter");
 
 	if (!gupnp_service_proxy_end_action(cb_data->proxy, cb_data->action,
-					    &upnp_error,
+					    &error,
 					    "ObjectID", G_TYPE_STRING,
 					    &object_id,
 					    "Result", G_TYPE_STRING,
 					    &result,
 					    NULL)) {
 		MSU_LOG_WARNING("Create Object operation failed: %s",
-				upnp_error->message);
+				error->message);
 
 		cb_data->error = g_error_new(MSU_ERROR,
 					     MSU_ERROR_OPERATION_FAILED,
 					     "Create Object operation "
 					     " failed: %s",
-					     upnp_error->message);
+					     error->message);
 		goto on_error;
 	}
 
+	MSU_LOG_DEBUG_NL();
+	MSU_LOG_DEBUG("Create Object Result: %s", result);
+	MSU_LOG_DEBUG_NL();
+
 	delete_needed = TRUE;
+
 	parser = gupnp_didl_lite_parser_new();
 
 	g_signal_connect(parser, "object-available" ,
 			 G_CALLBACK(prv_extract_import_uri), &import_uri);
 
-	MSU_LOG_DEBUG("Create Object Result: %s", result);
-
-	if (!gupnp_didl_lite_parser_parse_didl(parser, result, &upnp_error) &&
-	    upnp_error->code != GUPNP_XML_ERROR_EMPTY_NODE) {
+	if (!gupnp_didl_lite_parser_parse_didl(parser, result, &error) &&
+	    error->code != GUPNP_XML_ERROR_EMPTY_NODE) {
 
 		MSU_LOG_WARNING("Unable to parse results of CreateObject: %s",
-				upnp_error->message);
+				error->message);
 
 		cb_data->error = g_error_new(MSU_ERROR,
 					     MSU_ERROR_OPERATION_FAILED,
 					     "Unable to parse results of CreateObject: %s",
-					     upnp_error->message);
+					     error->message);
 		goto on_error;
 	}
 
@@ -3045,9 +3072,9 @@ static void prv_create_object_cb(GUPnPServiceProxy *proxy,
 
 	MSU_LOG_DEBUG("Import URI %s", import_uri);
 
-	upload = prv_msu_device_upload_new(cb_data->task->ut.upload.file_path,
-					   import_uri, cb_task_data->mime_type,
-					   &cb_data->error);
+	upload = prv_upload_data_new(file_path, body, body_length,
+				     import_uri, mime_type, &cb_data->error);
+
 	if (!upload)
 		goto on_error;
 
@@ -3071,10 +3098,9 @@ static void prv_create_object_cb(GUPnPServiceProxy *proxy,
 	MSU_LOG_DEBUG("Object ID %s", object_id);
 	MSU_LOG_DEBUG("Object Path %s", object_path);
 
-	out_params[0] = g_variant_new_uint32(*upload_id);
-	out_params[1] = g_variant_new_object_path(object_path);
-	cb_data->result = g_variant_ref_sink(g_variant_new_tuple(out_params,
-								 2));
+	out_p[0] = g_variant_new_uint32(*upload_id);
+	out_p[1] = g_variant_new_object_path(object_path);
+	cb_data->result = g_variant_ref_sink(g_variant_new_tuple(out_p, 2));
 
 	++cb_data->task->target.device->upload_id;
 	if (cb_data->task->target.device->upload_id > G_MAXINT)
@@ -3090,9 +3116,10 @@ on_error:
 			object_id);
 
 		cb_data->action = gupnp_service_proxy_begin_action(
-			cb_data->proxy, "DestroyObject", prv_upload_delete_cb,
-			cb_data, "ObjectID", G_TYPE_STRING,
-			object_id, NULL);
+					cb_data->proxy, "DestroyObject",
+					prv_upload_delete_cb, cb_data,
+					"ObjectID", G_TYPE_STRING, object_id,
+					NULL);
 	} else {
 		(void) g_idle_add(msu_async_complete_task, cb_data);
 		g_cancellable_disconnect(cb_data->cancellable,
@@ -3107,10 +3134,22 @@ on_error:
 
 	g_free(result);
 
-	if (upnp_error)
-		g_error_free(upnp_error);
+	if (error)
+		g_error_free(error);
 
 	MSU_LOG_DEBUG("Exit");
+}
+
+static void prv_create_object_upload_cb(GUPnPServiceProxy *proxy,
+					GUPnPServiceProxyAction *action,
+					gpointer user_data)
+{
+	msu_async_cb_data_t *cb_data = user_data;
+
+	prv_generic_upload_cb(cb_data,
+			      cb_data->task->ut.upload.file_path,
+			      NULL, 0,
+			      cb_data->ut.upload.mime_type);
 }
 
 void msu_device_upload(msu_client_t *client,
@@ -3131,11 +3170,13 @@ void msu_device_upload(msu_client_t *client,
 				      cb_task_data->object_class,
 				      cb_task_data->mime_type);
 
+	MSU_LOG_DEBUG_NL();
 	MSU_LOG_DEBUG("DIDL: %s", didl);
+	MSU_LOG_DEBUG_NL();
 
 	cb_data->action = gupnp_service_proxy_begin_action(
 		context->service_proxy, "CreateObject",
-		prv_create_object_cb, cb_data,
+		prv_create_object_upload_cb, cb_data,
 		"ContainerID", G_TYPE_STRING, parent_id,
 		"Elements", G_TYPE_STRING, didl,
 		NULL);
@@ -3666,6 +3707,427 @@ void msu_device_update_object(msu_client_t *client,
 					cb_data, NULL);
 
 	cb_data->cancellable = cancellable;
+
+	MSU_LOG_DEBUG("Exit");
+}
+
+static void prv_didls_free(gpointer data)
+{
+	prv_new_playlist_ct_t *priv_t = (prv_new_playlist_ct_t *)data;
+
+	if (priv_t) {
+		g_free(priv_t->id);
+		g_free(priv_t->parent_id);
+		g_free(priv_t);
+	}
+}
+
+static void prv_playlist_upload_cb(GUPnPServiceProxy *proxy,
+				   GUPnPServiceProxyAction *action,
+				   gpointer user_data)
+{
+	msu_async_cb_data_t *cb_data = user_data;
+	gchar *didls;
+
+	didls = gupnp_media_collection_get_string(
+					cb_data->ut.playlist.collection);
+
+	MSU_LOG_DEBUG_NL();
+	MSU_LOG_DEBUG("Collection: %s", didls);
+	MSU_LOG_DEBUG_NL();
+
+	prv_generic_upload_cb(cb_data, NULL, didls, strlen(didls), "text/xml");
+}
+
+static void prv_create_didls_item_parse_object(GUPnPDIDLLiteParser *parser,
+					       GUPnPDIDLLiteObject *object,
+					       gpointer user_data)
+{
+	const char *class;
+	const char *title;
+	const char *artist;
+	const char *album;
+	const char *uri = NULL;
+	GList *resources;
+	GUPnPDIDLLiteObject *item_obj;
+	GUPnPDIDLLiteItem *item;
+	GUPnPDIDLLiteResource *res;
+	GUPnPMediaCollection *collection = user_data;
+
+	if (GUPNP_IS_DIDL_LITE_CONTAINER(object))
+		goto exit;
+
+	class = gupnp_didl_lite_object_get_upnp_class(object);
+	title = gupnp_didl_lite_object_get_title(object);
+	artist = gupnp_didl_lite_object_get_artist(object);
+	album = gupnp_didl_lite_object_get_album(object);
+	resources = gupnp_didl_lite_object_get_resources(object);
+
+	if (resources != NULL) {
+		if (resources->data != NULL)
+			uri = gupnp_didl_lite_resource_get_uri(resources->data);
+
+		g_list_free_full(resources, g_object_unref);
+	}
+
+	MSU_LOG_DEBUG("Create DIDL_S Item");
+	MSU_LOG_DEBUG("title: %s", title);
+	MSU_LOG_DEBUG("class: %s", class);
+	MSU_LOG_DEBUG("Artist: %s", artist);
+	MSU_LOG_DEBUG("album: %s", album);
+	MSU_LOG_DEBUG("URI: %s", uri);
+	MSU_LOG_DEBUG_NL();
+
+	item = gupnp_media_collection_add_item(collection);
+	item_obj = GUPNP_DIDL_LITE_OBJECT(item);
+
+	if (title  && *title)
+		gupnp_didl_lite_object_set_title(item_obj, title);
+
+	if (class && *class)
+		gupnp_didl_lite_object_set_upnp_class(item_obj, class);
+
+	if (artist && *artist)
+		gupnp_didl_lite_object_set_artist(item_obj, artist);
+
+	if (album && *album)
+		gupnp_didl_lite_object_set_album(item_obj, album);
+
+	if (uri && *uri) {
+		res = gupnp_didl_lite_object_add_resource(item_obj);
+		gupnp_didl_lite_resource_set_uri(res, uri);
+		g_object_unref(res);
+	}
+
+	g_object_unref(item);
+
+exit:
+	return;
+}
+
+static void prv_create_didls_item_browse_cb(GUPnPServiceProxy *proxy,
+					    GUPnPServiceProxyAction *action,
+					    gpointer user_data)
+{
+	GError *error = NULL;
+	prv_new_playlist_ct_t *priv_t = user_data;
+	msu_async_cb_data_t *cb_data = priv_t->cb_data;
+	GUPnPDIDLLiteParser *parser = NULL;
+	gchar *result = NULL;
+
+	if (!gupnp_service_proxy_end_action(proxy, action, &error,
+					    "Result", G_TYPE_STRING,
+					    &result, NULL)) {
+		MSU_LOG_WARNING("Browse Object operation failed: %s",
+				error->message);
+
+		cb_data->error = g_error_new(MSU_ERROR,
+					     MSU_ERROR_OPERATION_FAILED,
+					     "Browse operation failed: %s",
+					     error->message);
+		goto on_error;
+	}
+
+	MSU_LOG_DEBUG_NL();
+	MSU_LOG_DEBUG("Result: %s", result);
+	MSU_LOG_DEBUG_NL();
+
+	parser = gupnp_didl_lite_parser_new();
+
+	g_signal_connect(parser, "object-available",
+			 G_CALLBACK(prv_create_didls_item_parse_object),
+			 cb_data->ut.playlist.collection);
+
+	if (!gupnp_didl_lite_parser_parse_didl(parser, result, &error)) {
+		if (error->code == GUPNP_XML_ERROR_EMPTY_NODE) {
+			MSU_LOG_WARNING("Property not defined for object");
+
+			cb_data->error = g_error_new(MSU_ERROR,
+						     MSU_ERROR_UNKNOWN_PROPERTY,
+						     "Property not defined for object");
+		} else {
+			MSU_LOG_WARNING("Unable to parse results of browse: %s",
+					error->message);
+
+			cb_data->error = g_error_new(MSU_ERROR,
+						     MSU_ERROR_OPERATION_FAILED,
+						     "Unable to parse results of browse: %s",
+						     error->message);
+		}
+
+		goto on_error;
+	}
+
+on_error:
+
+	MSU_LOG_DEBUG_NL();
+
+	if (cb_data->error != NULL)
+		msu_chain_task_cancel(cb_data->ut.playlist.chain);
+
+	if (parser)
+		g_object_unref(parser);
+
+	if (error)
+		g_error_free(error);
+
+	g_free(result);
+}
+
+static GUPnPServiceProxyAction *prv_create_didls_item_browse(
+							msu_chain_task_t *chain,
+							gboolean *failed)
+{
+	msu_device_context_t *context;
+	prv_new_playlist_ct_t *priv_t;
+
+	priv_t = (prv_new_playlist_ct_t *)msu_chain_task_get_user_data(chain);
+
+	context = priv_t->cb_data->ut.playlist.context;
+	*failed = FALSE;
+
+	MSU_LOG_DEBUG("Browse for ID: %s", priv_t->id);
+
+	return gupnp_service_proxy_begin_action(
+			context->service_proxy, "Browse",
+			msu_chain_task_begin_action_cb, chain,
+			"ObjectID", G_TYPE_STRING, priv_t->id,
+			"BrowseFlag", G_TYPE_STRING, "BrowseMetadata",
+			"Filter", G_TYPE_STRING, "upnp:artist,upnp:album,res",
+			"StartingIndex", G_TYPE_INT, 0,
+			"RequestedCount", G_TYPE_INT, 1,
+			"SortCriteria", G_TYPE_STRING, "", NULL);
+}
+
+static void prv_create_chain_cancelled(GCancellable *cancellable,
+				       gpointer user_data)
+{
+	msu_async_cb_data_t *cb_data = user_data;
+
+	msu_chain_task_cancel(cb_data->ut.playlist.chain);
+
+	if (!cb_data->error)
+		cb_data->error = g_error_new(MSU_ERROR, MSU_ERROR_CANCELLED,
+					     "Operation cancelled.");
+
+	(void) g_idle_add(msu_async_complete_task, cb_data);
+}
+
+static gboolean prv_create_chain_didls_items(msu_task_t *task,
+					     msu_async_cb_data_t *cb_data)
+{
+	gchar *root_path = NULL;
+	gchar *path;
+	gchar *id = NULL;
+	prv_new_playlist_ct_t *priv_t;
+	msu_async_playlist_t *a_playlist = &cb_data->ut.playlist;
+	GVariantIter iter;
+
+	MSU_LOG_DEBUG_NL();
+
+	a_playlist->collection = gupnp_media_collection_new();
+	gupnp_media_collection_set_title(a_playlist->collection,
+					 task->ut.playlist.title);
+	gupnp_media_collection_set_author(a_playlist->collection,
+					  task->ut.playlist.creator);
+
+	g_variant_iter_init(&iter, task->ut.playlist.item_path);
+
+	while (g_variant_iter_next(&iter, "&o", &path)) {
+		if (!msu_path_get_path_and_id(path, &root_path, &id, NULL)) {
+			MSU_LOG_DEBUG("Can't get id for path %s", path);
+			cb_data->error = g_error_new(MSU_ERROR,
+						     MSU_ERROR_OBJECT_NOT_FOUND,
+						     "Unable to find object for path: %s",
+						     path);
+			goto on_error;
+		}
+
+		MSU_LOG_DEBUG("Create Task: @id: %s - Root: %s", id, root_path);
+
+		g_free(root_path);
+
+		priv_t = g_new0(prv_new_playlist_ct_t, 1);
+		priv_t->cb_data = cb_data;
+		priv_t->id = id;
+
+		msu_chain_task_add(a_playlist->chain,
+				   prv_create_didls_item_browse,
+				   task->target.device,
+				   prv_create_didls_item_browse_cb,
+				   prv_didls_free, priv_t);
+	}
+
+	MSU_LOG_DEBUG_NL();
+	return TRUE;
+
+on_error:
+
+	return FALSE;
+}
+
+static void prv_create_playlist_object(msu_task_create_playlist_t *t_playlist,
+				       msu_async_playlist_t *a_playlist,
+				       char *parent_id)
+{
+	GUPnPDIDLLiteWriter *writer;
+	GUPnPDIDLLiteObject *item;
+	GUPnPProtocolInfo *protocol_info;
+	GUPnPDIDLLiteResource *res;
+	GUPnPDIDLLiteContributor *creator;
+	GUPnPDIDLLiteContributor *author;
+	GTimeVal time_v;
+	gchar *time_c;
+
+	writer = gupnp_didl_lite_writer_new(NULL);
+	item = GUPNP_DIDL_LITE_OBJECT(gupnp_didl_lite_writer_add_item(writer));
+
+	gupnp_didl_lite_object_set_id(item, "");
+	gupnp_didl_lite_object_set_title(item, t_playlist->title);
+	gupnp_didl_lite_object_set_genre(item, t_playlist->genre);
+	gupnp_didl_lite_object_set_description(item, t_playlist->desc);
+
+	creator = gupnp_didl_lite_object_add_creator(item);
+	author = gupnp_didl_lite_object_add_author(item);
+	gupnp_didl_lite_contributor_set_name(creator, t_playlist->creator);
+	gupnp_didl_lite_contributor_set_name(author, t_playlist->creator);
+
+	gupnp_didl_lite_object_set_parent_id(item, parent_id);
+	gupnp_didl_lite_object_set_upnp_class(item, "object.item.playlistItem");
+	gupnp_didl_lite_object_set_restricted(item, FALSE);
+
+	protocol_info = gupnp_protocol_info_new();
+	gupnp_protocol_info_set_mime_type(protocol_info, "text/xml");
+	gupnp_protocol_info_set_protocol(protocol_info, "*");
+	gupnp_protocol_info_set_network(protocol_info, "*");
+	gupnp_protocol_info_set_dlna_profile(protocol_info, "DIDL_S");
+
+	res = gupnp_didl_lite_object_add_resource(item);
+	gupnp_didl_lite_resource_set_protocol_info(res, protocol_info);
+
+	g_get_current_time(&time_v);
+	time_c = g_time_val_to_iso8601(&time_v);
+	gupnp_didl_lite_object_set_date(item, time_c);
+
+	/* TODO: Need to compute DLNA Profile */
+
+	a_playlist->didl = gupnp_didl_lite_writer_get_string(writer);
+
+	MSU_LOG_DEBUG("Playlist object %s created", t_playlist->title);
+
+	g_object_unref(res);
+	g_object_unref(protocol_info);
+	g_object_unref(creator);
+	g_object_unref(author);
+	g_object_unref(item);
+	g_object_unref(writer);
+	g_free(time_c);
+}
+
+static void prv_create_didls_chain_end(msu_chain_task_t *chain, gpointer data)
+{
+	prv_new_playlist_ct_t *priv_t = data;
+	msu_async_cb_data_t *cb_data = priv_t->cb_data;
+	msu_async_playlist_t *a_playlist;
+	msu_task_create_playlist_t *t_playlist;
+	gboolean cancelled;
+
+	MSU_LOG_DEBUG("Enter");
+
+	cancelled = msu_chain_task_is_canceled(chain);
+
+	if (cb_data->cancel_id) {
+		g_cancellable_disconnect(cb_data->cancellable,
+					 cb_data->cancel_id);
+
+		cb_data->cancel_id = 0;
+	}
+
+	if (cancelled)
+		goto on_clear;
+
+	t_playlist = &priv_t->cb_data->task->ut.playlist;
+	a_playlist = &cb_data->ut.playlist;
+	prv_create_playlist_object(t_playlist, a_playlist, priv_t->parent_id);
+
+	MSU_LOG_DEBUG("Creating object");
+	cb_data->action = gupnp_service_proxy_begin_action(
+				a_playlist->context->service_proxy,
+				"CreateObject",
+				prv_playlist_upload_cb, cb_data,
+				"ContainerID", G_TYPE_STRING, priv_t->parent_id,
+				"Elements", G_TYPE_STRING, a_playlist->didl,
+				NULL);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cb_data->cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+on_clear:
+
+	if (cancelled)
+		(void) g_idle_add(msu_async_complete_task, cb_data);
+
+	prv_didls_free(priv_t);
+
+	MSU_LOG_DEBUG("Exit");
+}
+
+static gboolean prv_idle_chain_start(gpointer user_data)
+{
+	msu_chain_task_t *chain = (msu_chain_task_t *)user_data;
+
+	if (!msu_chain_task_is_canceled(chain))
+		msu_chain_task_start(chain);
+
+	return FALSE;
+}
+
+void msu_device_playlist_upload(msu_client_t *client,
+				msu_task_t *task,
+				const gchar *parent_id,
+				msu_async_cb_data_t *cb_data,
+				GCancellable *cancellable)
+{
+	msu_device_context_t *context;
+	prv_new_playlist_ct_t *priv_t;
+	msu_chain_task_t *chain;
+
+	MSU_LOG_DEBUG("Enter");
+	MSU_LOG_DEBUG("Uploading playlist to %s", parent_id);
+
+	priv_t = g_new0(prv_new_playlist_ct_t, 1);
+	priv_t->cb_data = cb_data;
+	priv_t->parent_id = g_strdup(parent_id);
+
+	chain = msu_chain_task_new(prv_create_didls_chain_end, priv_t);
+
+	context = msu_device_get_context(task->target.device, client);
+
+	cb_data->proxy = context->service_proxy;
+	cb_data->ut.playlist.context = context;
+	cb_data->ut.playlist.chain = chain;
+	cb_data->cancellable = cancellable;
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cb_data->cancellable,
+					G_CALLBACK(prv_create_chain_cancelled),
+					cb_data, NULL);
+
+	if (prv_create_chain_didls_items(task, cb_data)) {
+		g_idle_add(prv_idle_chain_start, chain);
+	} else {
+		prv_didls_free(priv_t);
+
+		(void) g_idle_add(msu_async_complete_task, cb_data);
+
+		if (cb_data->cancel_id) {
+			g_cancellable_disconnect(cb_data->cancellable,
+						 cb_data->cancel_id);
+
+			cb_data->cancel_id = 0;
+		}
+	}
 
 	MSU_LOG_DEBUG("Exit");
 }

@@ -30,7 +30,6 @@
 #include "client.h"
 #include "props.h"
 
-typedef struct msu_device_context_t_ msu_device_context_t;
 struct msu_device_context_t_ {
 	gchar *ip_address;
 	GUPnPDeviceProxy *device_proxy;
@@ -116,5 +115,11 @@ void msu_device_update_object(msu_client_t *client,
 			      msu_async_cb_data_t *cb_data,
 			      const gchar *upnp_filter,
 			      GCancellable *cancellable);
+
+void msu_device_playlist_upload(msu_client_t *client,
+				msu_task_t *task,
+				const gchar *parent_id,
+				msu_async_cb_data_t *cb_data,
+				GCancellable *cancellable);
 
 #endif

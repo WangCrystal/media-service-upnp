@@ -36,6 +36,7 @@ static const gchar gUPnPGenre[] = "object.container.genre";
 static const gchar gUPnPAudioItem[] = "object.item.audioItem";
 static const gchar gUPnPVideoItem[] = "object.item.videoItem";
 static const gchar gUPnPImageItem[] = "object.item.imageItem";
+static const gchar gUPnPPlaylistItem[] = "object.item.playlistItem";
 
 static const unsigned int gUPnPContainerLen =
 	(sizeof(gUPnPContainer) / sizeof(gchar)) - 1;
@@ -51,6 +52,8 @@ static const unsigned int gUPnPVideoItemLen =
 	(sizeof(gUPnPVideoItem) / sizeof(gchar)) - 1;
 static const unsigned int gUPnPImageItemLen =
 	(sizeof(gUPnPImageItem) / sizeof(gchar)) - 1;
+static const unsigned int gUPnPPlaylistItemLen =
+	(sizeof(gUPnPPlaylistItem) / sizeof(gchar)) - 1;
 
 static const gchar gUPnPPhotoAlbum[] = "object.container.album.photoAlbum";
 static const gchar gUPnPMusicAlbum[] = "object.container.album.musicAlbum";
@@ -67,6 +70,7 @@ static const gchar gUPnPMusicVideoClip[] =
 static const gchar gUPnPVideoBroadcast[] =
 	"object.item.videoItem.videoBroadcast";
 static const gchar gUPnPPhoto[] = "object.item.imageItem.photo";
+
 static const gchar gMediaSpec2Container[] = "container";
 static const gchar gMediaSpec2Album[] = "album";
 static const gchar gMediaSpec2AlbumPhoto[] = "album.photo";
@@ -86,6 +90,7 @@ static const gchar gMediaSpec2VideoBroadcast[] = "video.broadcast";
 static const gchar gMediaSpec2Video[] = "video";
 static const gchar gMediaSpec2ImagePhoto[] = "image.photo";
 static const gchar gMediaSpec2Image[] = "image";
+static const gchar gMediaSpec2Playlist[] = "playlist";
 
 static msu_prop_map_t *prv_msu_prop_map_new(const gchar *prop_name,
 					    msu_upnp_prop_mask type,
@@ -280,8 +285,7 @@ void msu_prop_maps_new(GHashTable **property_map, GHashTable **filter_map)
 	prop_t = prv_msu_prop_map_new("res@updateCount",
 				      MSU_UPNP_MASK_PROP_UPDATE_COUNT,
 				      TRUE, TRUE, FALSE);
-	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_UPDATE_COUNT,
-			    prop_t);
+	g_hash_table_insert(f_map, MSU_INTERFACE_PROP_UPDATE_COUNT, prop_t);
 	g_hash_table_insert(p_map, "res@updateCount",
 			    MSU_INTERFACE_PROP_UPDATE_COUNT);
 
@@ -1067,6 +1071,8 @@ const gchar *msu_props_media_spec_to_upnp_class(const gchar *m2spec_class)
 		retval = gUPnPPhoto;
 	else if (!strcmp(m2spec_class, gMediaSpec2Image))
 		retval = gUPnPImageItem;
+	else if (!strcmp(m2spec_class, gMediaSpec2Playlist))
+		retval = gUPnPPlaylistItem;
 
 	return retval;
 }
@@ -1128,6 +1134,9 @@ const gchar *msu_props_upnp_class_to_media_spec(const gchar *upnp_class)
 			retval = gMediaSpec2ImagePhoto;
 		else
 			retval = gMediaSpec2Image;
+	}  else if (!strncmp(upnp_class, gUPnPPlaylistItem,
+			     gUPnPPlaylistItemLen)) {
+		retval = gMediaSpec2Playlist;
 	}
 
 	return retval;

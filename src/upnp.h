@@ -102,4 +102,12 @@ void msu_upnp_update_object(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
 			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb);
+void msu_upnp_create_playlist(msu_upnp_t *upnp, msu_client_t *client,
+			      msu_task_t *task,
+			      GCancellable *cancellable,
+			      msu_upnp_task_complete_t cb);
+void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
+				     msu_task_t *task,
+				     GCancellable *cancellable,
+				     msu_upnp_task_complete_t cb);
 #endif

@@ -168,4 +168,13 @@
 #define MSU_INTERFACE_TO_DELETE "ToDelete"
 #define MSU_INTERFACE_CANCEL "Cancel"
 
+#define MSU_INTERFACE_CREATE_PLAYLIST "CreatePlaylist"
+#define MSU_INTERFACE_CREATE_PLAYLIST_TO_ANY "CreatePlaylistInAnyContainer"
+#define MSU_INTERFACE_TITLE "Title"
+#define MSU_INTERFACE_CREATOR "Creator"
+#define MSU_INTERFACE_GENRE "Genre"
+#define MSU_INTERFACE_DESCRIPTION "Description"
+#define MSU_INTERFACE_PLAYLIST_ITEMS "PlaylistItems"
+
+
 #endif
