@@ -248,22 +248,30 @@ void msu_task_processor_cancel_queue(const msu_task_queue_key_t *queue_id)
 	MSU_LOG_DEBUG("Exit");
 }
 
-static void prv_free_queue_for_source(gpointer key, gpointer value,
+static gboolean prv_free_queue_for_source(gpointer key, gpointer value,
 				      gpointer user_data)
 {
 	msu_task_queue_key_t *queue_key = key;
 	msu_task_queue_t *queue = value;
 	const gchar *source = user_data;
+	gboolean ret_val = FALSE;
 
 	if (!strcmp(source, queue_key->source) && !queue->defer_remove) {
 		queue->defer_remove = (queue->cancellable != NULL);
 
 		prv_task_queue_cancel(queue);
 
-		if (!queue->defer_remove)
-			g_hash_table_remove(queue_key->processor->task_queues,
-					    queue_key);
+		if (!queue->defer_remove) {
+			MSU_LOG_DEBUG("Removing queue <%s,%s>",
+				      queue_key->source, queue_key->sink);
+			ret_val = TRUE;
+			goto end;
+		}
 	}
+
+end:
+
+	return ret_val;
 }
 
 void msu_task_processor_remove_queues_for_source(
@@ -272,28 +280,37 @@ void msu_task_processor_remove_queues_for_source(
 {
 	MSU_LOG_DEBUG("Enter - Source <%s>", source);
 
-	g_hash_table_foreach(processor->task_queues, prv_free_queue_for_source,
-			     (gpointer)source);
+	g_hash_table_foreach_remove(processor->task_queues,
+				    prv_free_queue_for_source,
+				    (gpointer)source);
 
 	MSU_LOG_DEBUG("Exit");
 }
 
-static void prv_free_queue_for_sink(gpointer key, gpointer value,
+static gboolean prv_free_queue_for_sink(gpointer key, gpointer value,
 				    gpointer user_data)
 {
 	msu_task_queue_key_t *queue_key = key;
 	msu_task_queue_t *queue = value;
 	const gchar *sink = user_data;
+	gboolean ret_val = FALSE;
 
 	if (!strcmp(sink, queue_key->sink) && !queue->defer_remove) {
 		queue->defer_remove = (queue->cancellable != NULL);
 
 		prv_task_queue_cancel(queue);
 
-		if (!queue->defer_remove)
-			g_hash_table_remove(queue_key->processor->task_queues,
-					    queue_key);
+		if (!queue->defer_remove) {
+			MSU_LOG_DEBUG("Removing queue <%s,%s>",
+				      queue_key->source, queue_key->sink);
+			ret_val = TRUE;
+			goto end;
+		}
 	}
+
+end:
+
+	return ret_val;
 }
 
 void msu_task_processor_remove_queues_for_sink(msu_task_processor_t *processor,
@@ -301,8 +318,9 @@ void msu_task_processor_remove_queues_for_sink(msu_task_processor_t *processor,
 {
 	MSU_LOG_DEBUG("Enter - Sink <%s>", sink);
 
-	g_hash_table_foreach(processor->task_queues, prv_free_queue_for_sink,
-			     (gpointer)sink);
+	g_hash_table_foreach_remove(processor->task_queues,
+				    prv_free_queue_for_sink,
+				    (gpointer)sink);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -419,15 +437,23 @@ void msu_task_queue_task_completed(const msu_task_queue_key_t *queue_id)
 
 	processor->running_tasks--;
 
-	if (processor->quitting && !processor->running_tasks)
+	if (processor->quitting && !processor->running_tasks) {
 		g_idle_add(processor->on_quit_cb, NULL);
-	else if (queue->defer_remove)
+	}
+	else if (queue->defer_remove) {
+		MSU_LOG_DEBUG("Removing queue <%s,%s>",
+			      queue_id->source, queue_id->sink);
 		g_hash_table_remove(processor->task_queues, queue_id);
-	else if (queue->tasks->len > 0)
+	}
+	else if (queue->tasks->len > 0) {
 		queue->idle_id = g_idle_add(prv_task_queue_process_task,
 					    (gpointer)queue_id);
-	else if (queue->flags & MSU_TASK_QUEUE_FLAG_AUTO_REMOVE)
+	}
+	else if (queue->flags & MSU_TASK_QUEUE_FLAG_AUTO_REMOVE) {
+		MSU_LOG_DEBUG("Removing queue <%s,%s>",
+			      queue_id->source, queue_id->sink);
 		g_hash_table_remove(processor->task_queues, queue_id);
+	}
 
 	MSU_LOG_DEBUG("Exit");
 }
