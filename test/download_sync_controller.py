@@ -221,15 +221,16 @@ class DscController(object):
 
             try:
                 dlna_caps = server.get_prop('DLNACaps')
-                content_sync_cap = dlna_caps['content-synchronization']
-                if not content_sync_cap:
+                if not 'content-synchronization' in dlna_caps:
                     raise
             except:
                 raise DscError("'content-synchronization' cap not supported")
 
             try:
                 search_caps = server.get_prop('SearchCaps')
-                if not [x for x in search_caps if 'objectUpdateID' in x]:
+                if not [x for x in search_caps if 'ObjectUpdateID' in x]:
+                    raise
+                if not [x for x in search_caps if 'ContainerUpdateID' in x]:
                     raise
             except:
                 raise DscError("'objectUpdateID' search cap not supported")
@@ -243,7 +244,7 @@ class DscController(object):
         server = Device(server_path)
         server_uuid = server.get_prop('UDN')
         
-        if track == True and not self.__config.has_section(server_uuid):
+        if track and not self.__config.has_section(server_uuid):
             srt = self.__check_trackable(server)
             if srt != None:
                 self.__config.add_section(server_uuid)
@@ -256,7 +257,7 @@ class DscController(object):
                 print u"Sorry, the server {0} has no such capability and " \
                         "will not be tracked.".format(server_path)
 
-        elif track == False and self.__config.has_section(server_uuid):
+        elif not track and self.__config.has_section(server_uuid):
             self.__config.remove_section(server_uuid)
             self.__write_config()
             
