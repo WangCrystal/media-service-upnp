@@ -56,14 +56,19 @@ class _DscContainer(Container):
                                               'URLs', 'Parent', 'Type'], '')
 
 class DscError(Exception):
+    """A Download Sync Controller error."""
     def __init__(self, message):
+        """
+        message: description of the error
+
+        """
         Exception.__init__(self, message)
         self.message = message
 
     def __str__(self):
         return 'DscError: ' + self.message
 
-class DscDownloader(object):
+class _DscDownloader(object):
     def __init__(self, url, path):
         self.url = url
         self.path = path
@@ -160,7 +165,7 @@ class _DscStore(object):
                 self.__config.set(_DscStore.MEDIA_SECTION, orig, local_path)
                 print u'\tDownloading contents from "{0}"'.format(obj['URLs'][0])
                 print u'\t\tinto "{0}"...'.format(local_path)
-                downloader = DscDownloader(obj['URLs'][0], local_path)
+                downloader = _DscDownloader(obj['URLs'][0], local_path)
                 downloader.download()
         else:
             pass
@@ -233,6 +238,26 @@ class _DscStore(object):
         self.__sync_item(obj, obj_id, parent_id, status, True)
 
 class DscController(object):
+    """A Download Sync Controller.
+
+    The Download Sync Controller receive changes in the content or metadata
+    stored on media servers (DMS/M-DMS) and apply those changes to
+    the local storage.
+    Media servers must expose the 'content-synchronization' capability to
+    be tracked by this controller.
+
+    The three main methods are servers(), track() and sync().
+    * servers() lists the media servers available on the network
+    * track() is used to add a media server to the list of servers that are
+      to be synchronized.
+    * sync() launches the servers synchronisation to a local storage
+
+    Sample usage:
+    >>> controller.servers()
+    >>> controller.track('/com/intel/MediaServiceUPnP/server/0')
+    >>> controller.sync()
+
+    """
     CONFIG_PATH = os.environ['HOME'] + '/.config/download-sync-controller.conf'
     SUID_OPTION = 'system_update_id'
     SRT_OPTION = 'service_reset_token'
@@ -241,7 +266,13 @@ class DscController(object):
     DATA_PATH_OPTION = 'path'
 
     def __init__(self, rel_path = None):
-        
+        """
+        rel_path: if provided, contains the relative local storage path,
+                  from the user's HOME directory.
+                  If not provided, the local storage path will be
+                  '$HOME/download-sync-controller'
+
+        """
         self.__upnp = _DscUpnp()
 
         self.__config = ConfigParser.ConfigParser()
@@ -318,6 +349,15 @@ class DscController(object):
             return None
     
     def track(self, server_path, track = True, sync_contents = True):
+        """Adds or removes a media server to/from the controller's list.
+
+        server_path: d-bus path for the media server
+        track: when 'True', adds a server to the list
+               when 'False' removes a server from the list
+        sync_contents: when 'True', downloads media contents to the local
+                       storage upon synchronization.
+
+        """
         server = Device(server_path)
         server_uuid = server.get_prop('UDN')
         
@@ -347,11 +387,25 @@ class DscController(object):
             store = _DscStore(self.__store_path, server_uuid)
             store.remove()
 
-    def track_reset(self, server, sync_contents = True):
-        self.track(server, False, sync_contents)
-        self.track(server, True, sync_contents)
+    def track_reset(self, server_path, sync_contents = True):
+        """Removes local contents and meta data for a media server.
+
+        The next synchronization will be a *full* synchronization.
+
+        server_path: d-bus path for the media server
+        sync_contents: when 'True', downloads media contents to the local
+                       storage upon synchronization.
+
+        """
+        self.track(server_path, False, sync_contents)
+        self.track(server_path, True, sync_contents)
 
     def servers(self):
+        """Displays media servers available on the network.
+
+        Displays media servers information as well as the tracked status.
+
+        """
         print u'Running servers:'
 
         for item in self.__upnp.get_servers():
@@ -376,6 +430,7 @@ class DscController(object):
                 print str(err).strip()[:-1]
 
     def tracked_servers(self):
+        """Displays the list of servers currently tracked by the controller."""
         print u'Tracked servers:'
 
         for name in self.__config.sections():
@@ -383,6 +438,11 @@ class DscController(object):
                 print u'{0:<30}'.format(name)
 
     def sync(self):
+        """Performs a synchronization for all the tracked media servers.
+
+        Displays some progress information during the process.
+
+        """
         print u'Syncing...'
 
         for item, uuid, cur, new, full_sync in \
@@ -415,6 +475,11 @@ class DscController(object):
         print u'Done.'
 
     def reset(self):
+        """Removes local contents and meta data for all the tracked servers.
+
+        After the call, the list of tracked servers will be empty. 
+
+        """
         for name in self.__config.sections():
             if name != DscController.DATA_PATH_SECTION:
                 self.__config.remove_section(name)
@@ -430,3 +495,4 @@ if __name__ == '__main__':
     controller.servers()
     print
     print u'"controller" instance is ready for use.'
+    print u'Type "help(DscController)" for more details and usage samples.'
