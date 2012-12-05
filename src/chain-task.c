@@ -66,8 +66,13 @@ static gboolean prv_idle_next_task(gpointer user_data)
 	msu_chain_task_t *chain = (msu_chain_task_t *)user_data;
 	GList *head = chain->task_list;
 
+	chain->current = NULL;
 	chain->task_list = g_list_remove_link(chain->task_list, head);
-	g_list_free_1(head);
+
+	if (head != NULL) {
+		prv_free_atom(head->data);
+		g_list_free_1(head);
+	}
 
 	chain->idle_id = 0;
 	msu_chain_task_start(chain);
@@ -119,7 +124,7 @@ void msu_chain_task_cancel(msu_chain_task_t *chain)
 	if (context && chain->current->p_action) {
 		gupnp_service_proxy_cancel_action(context->service_proxy,
 						  chain->current->p_action);
-		chain->current->p_action = 0;
+		chain->current->p_action = NULL;
 	}
 
 	chain->canceled = TRUE;
@@ -136,8 +141,8 @@ void msu_chain_task_begin_action_cb(GUPnPServiceProxy *proxy,
 		current = chain->current;
 
 		if (chain->current != NULL) {
-			current->callback(proxy, action, current->user_data);
 			chain->current->p_action = NULL;
+			current->callback(proxy, action, current->user_data);
 		}
 
 		prv_next_task(chain);
@@ -146,20 +151,25 @@ void msu_chain_task_begin_action_cb(GUPnPServiceProxy *proxy,
 
 void msu_chain_task_start(msu_chain_task_t *chain)
 {
-	gboolean failed;
+	gboolean failed = FALSE;
 
 	if ((chain->task_list != NULL) && (!chain->canceled)) {
 		chain->current = chain->task_list->data;
 		chain->current->p_action = chain->current->t_action(chain,
 								    &failed);
-
 		if (failed)
 			chain->canceled = TRUE;
 
+		/* Call next task if current task is synchronous or if
+		 * current task is asynchronous, failed and
+		 * gupnp_service_proxy_begin_action has not been called.
+		 * In this latest case, prv_next_task will call end_func
+		 */
 		if (chain->current->p_action == NULL &&
-		    chain->current->callback == NULL)
+		    (chain->current->callback == NULL ||
+		     (chain->current->callback != NULL &&
+		      chain->canceled == TRUE)))
 			prv_next_task(chain);
-
 	} else {
 		if (chain->end_func)
 			chain->idle_id = g_idle_add(prv_idle_end_func, chain);

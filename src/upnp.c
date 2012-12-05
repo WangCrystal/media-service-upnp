@@ -193,8 +193,9 @@ static void prv_device_chain_end(msu_chain_task_t *chain, gpointer data)
 	gboolean canceled;
 	prv_device_new_ct_t *priv_t = (prv_device_new_ct_t *)data;
 
-	device = msu_chain_task_get_device(chain);
+	device = priv_t->device;
 	canceled = msu_chain_task_is_canceled(chain);
+
 	if (canceled)
 		goto on_clear;
 
