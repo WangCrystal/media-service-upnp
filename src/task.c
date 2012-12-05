@@ -536,6 +536,7 @@ void msu_task_complete(msu_task_t *task)
 		}
 		g_dbus_method_invocation_return_value(task->invocation,
 						      variant);
+		task->invocation = NULL;
 	}
 
 finished:
