@@ -3872,7 +3872,7 @@ on_error:
 		g_error_free(error);
 
 	g_free(result);
-}
+ }
 
 static GUPnPServiceProxyAction *prv_create_didls_item_browse(
 							msu_chain_task_t *chain,
@@ -3897,20 +3897,6 @@ static GUPnPServiceProxyAction *prv_create_didls_item_browse(
 			"StartingIndex", G_TYPE_INT, 0,
 			"RequestedCount", G_TYPE_INT, 1,
 			"SortCriteria", G_TYPE_STRING, "", NULL);
-}
-
-static void prv_create_chain_cancelled(GCancellable *cancellable,
-				       gpointer user_data)
-{
-	msu_async_cb_data_t *cb_data = user_data;
-
-	msu_chain_task_cancel(cb_data->ut.playlist.chain);
-
-	if (!cb_data->error)
-		cb_data->error = g_error_new(MSU_ERROR, MSU_ERROR_CANCELLED,
-					     "Operation cancelled.");
-
-	(void) g_idle_add(msu_async_complete_task, cb_data);
 }
 
 static gboolean prv_create_chain_didls_items(msu_task_t *task,
@@ -4037,9 +4023,9 @@ static void prv_create_didls_chain_end(msu_chain_task_t *chain, gpointer data)
 	cancelled = msu_chain_task_is_canceled(chain);
 
 	if (cb_data->cancel_id) {
-		g_cancellable_disconnect(cb_data->cancellable,
-					 cb_data->cancel_id);
-
+		if (!g_cancellable_is_cancelled(cb_data->cancellable))
+			g_cancellable_disconnect(cb_data->cancellable,
+						 cb_data->cancel_id);
 		cb_data->cancel_id = 0;
 	}
 
@@ -4065,12 +4051,29 @@ static void prv_create_didls_chain_end(msu_chain_task_t *chain, gpointer data)
 					cb_data, NULL);
 on_clear:
 
-	if (cancelled)
+	if (cancelled) {
+		if (!cb_data->error)
+			cb_data->error = g_error_new(MSU_ERROR,
+						     MSU_ERROR_CANCELLED,
+						     "Operation cancelled.");
 		(void) g_idle_add(msu_async_complete_task, cb_data);
+	}
 
 	prv_didls_free(priv_t);
 
 	MSU_LOG_DEBUG("Exit");
+}
+
+static void prv_create_chain_cancelled(GCancellable *cancellable,
+				       gpointer user_data)
+{
+	msu_async_cb_data_t *cb_data = user_data;
+	msu_chain_task_t *chain = cb_data->ut.playlist.chain;
+
+	MSU_LOG_DEBUG("Enter");
+
+	msu_chain_task_cancel(chain);
+	prv_create_didls_chain_end(chain, msu_chain_task_get_end_data(chain));
 }
 
 static gboolean prv_idle_chain_start(gpointer user_data)

@@ -57,5 +57,7 @@ gboolean msu_chain_task_is_canceled(msu_chain_task_t *chain);
 
 msu_device_t *msu_chain_task_get_device(msu_chain_task_t *chain);
 gpointer *msu_chain_task_get_user_data(msu_chain_task_t *chain);
+gpointer *msu_chain_task_get_end_data(msu_chain_task_t *chain);
+
 
 #endif /* MSU_CHAIN_TASK_H__ */

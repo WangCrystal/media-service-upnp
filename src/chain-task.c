@@ -106,6 +106,14 @@ gpointer *msu_chain_task_get_user_data(msu_chain_task_t *chain)
 	return NULL;
 }
 
+gpointer *msu_chain_task_get_end_data(msu_chain_task_t *chain)
+{
+	if (chain != NULL)
+		return chain->end_data;
+
+	return NULL;
+}
+
 void msu_chain_task_cancel(msu_chain_task_t *chain)
 {
 	msu_device_t *device;
