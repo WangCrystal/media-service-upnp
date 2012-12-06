@@ -241,34 +241,44 @@ static void prv_last_change_decode(GUPnPCDSLastChangeEntry *entry,
 				   const char *root_path)
 {
 	GUPnPCDSLastChangeEvent event;
-	GVariant *state = NULL;
+	GVariant *state;
 	const char *object_id;
 	const char *parent_id;
-	const char *class;
+	const char *mclass;
 	const char *media_class;
 	char *key[] = {"ADD", "DEL", "MOD", "DONE"};
-	char *parent_path = NULL;
+	char *parent_path;
 	char *path = NULL;
 	gboolean sub_update;
 	guint32 update_id;
 
 	object_id = gupnp_cds_last_change_entry_get_object_id(entry);
-	parent_id = gupnp_cds_last_change_entry_get_parent_id(entry);
-	class = gupnp_cds_last_change_entry_get_class(entry);
+	if (!object_id)
+		goto on_error;
+
 	sub_update = gupnp_cds_last_change_entry_is_subtree_update(entry);
 	update_id = gupnp_cds_last_change_entry_get_update_id(entry);
-
-	if (object_id)
-		path = msu_path_from_id(root_path, object_id);
-
+	path = msu_path_from_id(root_path, object_id);
 	event = gupnp_cds_last_change_entry_get_event(entry);
 
 	switch (event) {
 	case GUPNP_CDS_LAST_CHANGE_EVENT_OBJECT_ADDED:
+		parent_id = gupnp_cds_last_change_entry_get_parent_id(entry);
+		if (!parent_id)
+			goto on_error;
+
+		mclass = gupnp_cds_last_change_entry_get_class(entry);
+		if (!mclass)
+			goto on_error;
+
+		media_class = msu_props_upnp_class_to_media_spec(mclass);
+		if (!media_class)
+			goto on_error;
+
 		parent_path = msu_path_from_id(root_path, parent_id);
-		media_class = msu_props_upnp_class_to_media_spec(class);
 		state = g_variant_new("(oubos)", path, update_id, sub_update,
 				      parent_path, media_class);
+		g_free(parent_path);
 		break;
 	case GUPNP_CDS_LAST_CHANGE_EVENT_OBJECT_REMOVED:
 	case GUPNP_CDS_LAST_CHANGE_EVENT_OBJECT_MODIFIED:
@@ -278,16 +288,16 @@ static void prv_last_change_decode(GUPnPCDSLastChangeEntry *entry,
 		state = g_variant_new("(ou)", path, update_id);
 		break;
 	case GUPNP_CDS_LAST_CHANGE_EVENT_INVALID:
-		break;
 	default:
+		goto on_error;
 		break;
 	}
 
-	if (state)
-		g_variant_builder_add(array, "{sv}", key[event - 1], state);
+	g_variant_builder_add(array, "{sv}", key[event - 1], state);
+
+on_error:
 
 	g_free(path);
-	g_free(parent_path);
 }
 
 static void prv_last_change_cb(GUPnPServiceProxy *proxy,
@@ -310,7 +320,6 @@ static void prv_last_change_cb(GUPnPServiceProxy *proxy,
 	MSU_LOG_DEBUG("LastChange XML: %s", last_change);
 	MSU_LOG_DEBUG_NL();
 
-	g_variant_builder_init(&array, G_VARIANT_TYPE("a{sv}"));
 	parser = gupnp_cds_last_change_parser_new();
 	list = gupnp_cds_last_change_parser_parse(parser, last_change, &error);
 
@@ -321,6 +330,7 @@ static void prv_last_change_cb(GUPnPServiceProxy *proxy,
 		goto on_error;
 	}
 
+	g_variant_builder_init(&array, G_VARIANT_TYPE("a{sv}"));
 	next = list;
 	while (next) {
 		prv_last_change_decode(next->data, &array, device->path);
