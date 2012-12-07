@@ -439,17 +439,14 @@ void msu_task_queue_task_completed(const msu_task_queue_key_t *queue_id)
 
 	if (processor->quitting && !processor->running_tasks) {
 		g_idle_add(processor->on_quit_cb, NULL);
-	}
-	else if (queue->defer_remove) {
+	} else if (queue->defer_remove) {
 		MSU_LOG_DEBUG("Removing queue <%s,%s>",
 			      queue_id->source, queue_id->sink);
 		g_hash_table_remove(processor->task_queues, queue_id);
-	}
-	else if (queue->tasks->len > 0) {
+	} else if (queue->tasks->len > 0) {
 		queue->idle_id = g_idle_add(prv_task_queue_process_task,
 					    (gpointer)queue_id);
-	}
-	else if (queue->flags & MSU_TASK_QUEUE_FLAG_AUTO_REMOVE) {
+	} else if (queue->flags & MSU_TASK_QUEUE_FLAG_AUTO_REMOVE) {
 		MSU_LOG_DEBUG("Removing queue <%s,%s>",
 			      queue_id->source, queue_id->sink);
 		g_hash_table_remove(processor->task_queues, queue_id);
