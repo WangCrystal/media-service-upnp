@@ -1,3 +1,28 @@
+version 0.4.0
+	- Added support for DLNA Content Synchronisation
+	  - LastChange event is now supported
+		https://github.com/01org/media-service-upnp/issues/103
+	  - The ObjectUpdateID, ContainerUpdateID and TotalDeleteChildCount
+	    properties are now supported.
+		https://github.com/01org/media-service-upnp/issues/104
+	  - Added a Download Synchronisation controller written in python to
+	    test support for DLNA Content Sync.
+	- Added APIs to create server side playlists
+		https://github.com/01org/media-service-upnp/issues/100
+	- Media-service-upnp's command processing architecure has been
+	  re-worked.
+	  - Only commands executed by a client on a specific server
+	    are now executed sequentially.  All other commands can be executed
+	    in parallel.
+	  - It is now possible for clients to cancel commands.
+		https://github.com/01org/media-service-upnp/issues/76
+	- The DLNA profile is now correctly specified when uploading files to
+	  DMSs.
+		https://github.com/01org/media-service-upnp/issues/101
+	- A new document has been added to describe how media-service-upnp's
+	  logging works
+		https://github.com/01org/media-service-upnp/issues/25
+
 version 0.3.0
 	- Implemented the Update method which allows server side object
 	  meta data to be added, updated and deleted.

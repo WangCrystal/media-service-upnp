@@ -1,7 +1,7 @@
 AC_PREREQ([2.66])
 
 AC_INIT([media-service-upnp],
-	[0.3.0],
+	[0.4.0],
 	[https://github.com/01org/media-service-upnp/issues/new],
 	,
 	[https://01.org/dleyna/])
