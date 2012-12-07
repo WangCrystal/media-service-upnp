@@ -1321,16 +1321,12 @@ static GVariant *prv_compute_resources(GUPnPDIDLLiteObject *object,
 		g_variant_builder_add(res_array_vb, "@a{sv}",
 				      g_variant_builder_end(res_vb));
 		g_variant_builder_unref(res_vb);
+		g_object_unref(ptr->data);
 		ptr = g_list_next(ptr);
 	}
 	retval = g_variant_builder_end(res_array_vb);
 	g_variant_builder_unref(res_array_vb);
 
-	ptr = resources;
-	while (ptr) {
-		g_object_unref(ptr->data);
-		ptr = ptr->next;
-	}
 	g_list_free(resources);
 
 	return retval;
