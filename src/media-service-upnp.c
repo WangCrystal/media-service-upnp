@@ -440,7 +440,7 @@ static const gchar g_msu_server_introspection[] =
 	"      <arg type='a(ou)' name='"MSU_INTERFACE_CONTAINER_PATHS_ID"'/>"
 	"    </signal>"
 	"    <signal name='"MSU_INTERFACE_ESV_LAST_CHANGE"'>"
-	"      <arg type='a{sv}' name='"
+	"      <arg type='a(sv)' name='"
 	MSU_INTERFACE_LAST_CHANGE_STATE_EVENT"'/>"
 	"    </signal>"
 	"    <signal name='"MSU_INTERFACE_UPLOAD_UPDATE"'>"

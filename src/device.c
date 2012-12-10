@@ -293,7 +293,7 @@ static void prv_last_change_decode(GUPnPCDSLastChangeEntry *entry,
 		break;
 	}
 
-	g_variant_builder_add(array, "{sv}", key[event - 1], state);
+	g_variant_builder_add(array, "(sv)", key[event - 1], state);
 
 on_error:
 
@@ -330,7 +330,7 @@ static void prv_last_change_cb(GUPnPServiceProxy *proxy,
 		goto on_error;
 	}
 
-	g_variant_builder_init(&array, G_VARIANT_TYPE("a{sv}"));
+	g_variant_builder_init(&array, G_VARIANT_TYPE("a(sv)"));
 	next = list;
 	while (next) {
 		prv_last_change_decode(next->data, &array, device->path);
@@ -338,7 +338,7 @@ static void prv_last_change_cb(GUPnPServiceProxy *proxy,
 		next = g_list_next(next);
 	}
 
-	val = g_variant_new("(@a{sv})", g_variant_builder_end(&array));
+	val = g_variant_new("(@a(sv))", g_variant_builder_end(&array));
 
 	(void) g_dbus_connection_emit_signal(
 					device->connection,
