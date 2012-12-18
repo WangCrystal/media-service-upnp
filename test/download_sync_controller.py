@@ -153,14 +153,19 @@ class _DscStore(object):
         orig = self.__orig_id(obj)
 
         if status == _DscStore.ITEM_UPDATE:
+            old_path = self.__config.get(_DscStore.MEDIA_SECTION, orig)
+            new_path = self.__create_path_for_name(obj['DisplayName'])
             print u'\tMedia "{0}" updated'.format(obj['DisplayName'])
-            self.__config.set(_DscStore.MEDIA_SECTION, orig, obj['DisplayName'])
+            print u'\t\tto "{0}"'.format(new_path)
+            self.__config.set(_DscStore.MEDIA_SECTION, orig, new_path)
+            os.rename(old_path, new_path)
         elif status == _DscStore.ITEM_NEW:
             print u'\tNew media "{0}" tracked'.format(obj['DisplayName'])
             self.__config.set(parent_id, obj_id, orig)
             self.__config.set(parent_id, obj_id + _DscStore.NAME_SUFFIX,
                               obj['DisplayName'])
-            if obj_id == orig and self.__sync:
+            if not self.__config.has_option(_DscStore.MEDIA_SECTION, orig) and \
+                                                                    self.__sync:
                 local_path = self.__create_path_for_name(obj['DisplayName'])
                 self.__config.set(_DscStore.MEDIA_SECTION, orig, local_path)
                 print u'\tDownloading contents from "{0}"'.format(obj['URLs'][0])
@@ -187,7 +192,7 @@ class _DscStore(object):
             shutil.rmtree(self.__root_path)
 
     def sync_container(self, container, items):
-        print u'Syncing container  {0}...'.format(container['DisplayName'])
+        print u'Syncing container "{0}"...'.format(container['DisplayName'])
 
         container_id = self.__id_from_path(container['Path'])
         if not self.__config.has_section(container_id):
@@ -228,6 +233,7 @@ class _DscStore(object):
         self.__write_config()
 
     def sync_item(self, obj):
+        print u'Syncing item "{0}"...'.format(obj['DisplayName'])
         obj_id = self.__id_from_path(obj['Path'])
         parent_id = self.__id_from_path(obj['Parent'])
         if self.__config.has_option(parent_id, obj_id):
