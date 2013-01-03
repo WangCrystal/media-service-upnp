@@ -48,7 +48,7 @@ media_service_upnp_headers =	src/async.h		 \
 				src/upnp.h
 
 
-bin_PROGRAMS = media-service-upnp
+libexec_PROGRAMS = media-service-upnp
 
 media_service_upnp_SOURCES =	$(media_service_upnp_headers)	\
 				$(media_service_upnp_sources)

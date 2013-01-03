@@ -1,4 +1,4 @@
 [D-BUS Service]
 Name=com.intel.media-service-upnp
-Exec=@prefix@/bin/media-service-upnp
+Exec=@prefix@/libexec/media-service-upnp
 
