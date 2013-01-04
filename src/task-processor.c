@@ -39,11 +39,14 @@ struct msu_task_queue_t_ {
 	msu_task_process_cb_t task_process_cb;
 	msu_task_cancel_cb_t task_cancel_cb;
 	msu_task_delete_cb_t task_delete_cb;
+	msu_task_finally_cb_t task_queue_finally_cb;
 	GCancellable *cancellable;
 	msu_task_atom_t *current_task;
 	guint idle_id;
 	gboolean defer_remove;
 	guint32 flags;
+	gpointer user_data;
+	gboolean cancelled;
 };
 
 struct msu_task_queue_key_t_ {
@@ -89,6 +92,18 @@ static void prv_task_free_cb(gpointer data, gpointer user_data)
 	task_queue->task_delete_cb(data);
 }
 
+static gboolean prv_task_queue_finally_cb(gpointer data)
+{
+	msu_task_queue_t *task_queue = data;
+
+	task_queue->task_queue_finally_cb(task_queue->cancelled,
+					  task_queue->user_data);
+
+	g_free(task_queue);
+
+	return FALSE;
+}
+
 static void prv_task_queue_free_cb(gpointer data)
 {
 	msu_task_queue_t *task_queue = data;
@@ -99,7 +114,11 @@ static void prv_task_queue_free_cb(gpointer data)
 	g_ptr_array_unref(task_queue->tasks);
 	if (task_queue->cancellable)
 		g_object_unref(task_queue->cancellable);
-	g_free(task_queue);
+
+	if (task_queue->task_queue_finally_cb)
+		g_idle_add(prv_task_queue_finally_cb, task_queue);
+	else
+		g_free(task_queue);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -155,16 +174,12 @@ const msu_task_queue_key_t *msu_task_processor_add_queue(
 	key->source = g_strdup(source);
 	key->sink = g_strdup(sink);
 
-	queue = g_malloc(sizeof(*queue));
+	queue = g_malloc0(sizeof(*queue));
 	queue->task_process_cb = task_process_cb;
 	queue->task_cancel_cb = task_cancel_cb;
 	queue->task_delete_cb = task_delete_cb;
-	queue->cancellable = NULL;
-	queue->current_task = NULL;
-	queue->idle_id = 0;
 	queue->tasks = g_ptr_array_new();
 	queue->flags = flags;
-	queue->defer_remove = FALSE;
 
 	g_hash_table_insert(processor->task_queues, key, queue);
 
@@ -181,34 +196,41 @@ static void prv_task_cancel_and_free_cb(gpointer data, gpointer user_data)
 	task_queue->task_delete_cb(data);
 }
 
-static void prv_task_queue_cancel(msu_task_queue_t *task_queue)
+static void prv_task_queue_cancel(const msu_task_queue_key_t *queue_id,
+				  msu_task_queue_t *task_queue)
 {
-	if (task_queue->current_task && task_queue->cancellable) {
-		g_cancellable_cancel(task_queue->cancellable);
-		g_object_unref(task_queue->cancellable);
-		task_queue->cancellable = NULL;
+	task_queue->cancelled = TRUE;
 
-		g_ptr_array_remove(task_queue->tasks, task_queue->current_task);
-
-		task_queue->task_cancel_cb(task_queue->current_task);
-	}
+	g_ptr_array_foreach(task_queue->tasks, prv_task_cancel_and_free_cb,
+			    task_queue);
+	g_ptr_array_set_size(task_queue->tasks, 0);
 
 	if (task_queue->idle_id) {
 		(void) g_source_remove(task_queue->idle_id);
 		task_queue->idle_id = 0;
 	}
 
-	g_ptr_array_foreach(task_queue->tasks, prv_task_cancel_and_free_cb,
-			    task_queue);
-	g_ptr_array_set_size(task_queue->tasks, 0);
+	if (task_queue->current_task) {
+		task_queue->task_cancel_cb(task_queue->current_task);
+
+		if (task_queue->cancellable)
+			g_cancellable_cancel(task_queue->cancellable);
+		else
+			msu_task_queue_task_completed(queue_id);
+	} else if (task_queue->flags & MSU_TASK_QUEUE_FLAG_AUTO_REMOVE) {
+		MSU_LOG_DEBUG("Removing queue <%s,%s>",
+			      queue_id->source, queue_id->sink);
+		g_hash_table_remove(queue_id->processor->task_queues, queue_id);
+	}
 }
 
 static void prv_task_queue_cancel_cb(gpointer key, gpointer value,
 				     gpointer user_data)
 {
+	msu_task_queue_key_t *queue_id = key;
 	msu_task_queue_t *task_queue = value;
 
-	prv_task_queue_cancel(task_queue);
+	prv_task_queue_cancel(queue_id, task_queue);
 }
 
 static void prv_cancel_all_queues(msu_task_processor_t *processor)
@@ -243,7 +265,7 @@ void msu_task_processor_cancel_queue(const msu_task_queue_key_t *queue_id)
 
 	queue = g_hash_table_lookup(queue_id->processor->task_queues,
 				    queue_id);
-	prv_task_queue_cancel(queue);
+	prv_task_queue_cancel(queue_id, queue);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -259,7 +281,7 @@ static gboolean prv_free_queue_for_source(gpointer key, gpointer value,
 	if (!strcmp(source, queue_key->source) && !queue->defer_remove) {
 		queue->defer_remove = (queue->cancellable != NULL);
 
-		prv_task_queue_cancel(queue);
+		prv_task_queue_cancel(queue_key, queue);
 
 		if (!queue->defer_remove) {
 			MSU_LOG_DEBUG("Removing queue <%s,%s>",
@@ -298,7 +320,7 @@ static gboolean prv_free_queue_for_sink(gpointer key, gpointer value,
 	if (!strcmp(sink, queue_key->sink) && !queue->defer_remove) {
 		queue->defer_remove = (queue->cancellable != NULL);
 
-		prv_task_queue_cancel(queue);
+		prv_task_queue_cancel(queue_key, queue);
 
 		if (!queue->defer_remove) {
 			MSU_LOG_DEBUG("Removing queue <%s,%s>",
@@ -356,6 +378,7 @@ static gboolean prv_task_queue_process_task(gpointer user_data)
 	queue = g_hash_table_lookup(queue_id->processor->task_queues,
 				    queue_id);
 
+	queue->cancelled = FALSE;
 	queue->idle_id = 0;
 	queue->current_task = g_ptr_array_index(queue->tasks, 0);
 	g_ptr_array_remove_index(queue->tasks, 0);
@@ -453,4 +476,36 @@ void msu_task_queue_task_completed(const msu_task_queue_key_t *queue_id)
 	}
 
 	MSU_LOG_DEBUG("Exit");
+}
+
+void msu_task_queue_set_finally(const msu_task_queue_key_t *queue_id,
+				msu_task_finally_cb_t finally_cb)
+{
+	msu_task_queue_t *queue;
+	msu_task_processor_t *processor = queue_id->processor;
+
+	queue = g_hash_table_lookup(processor->task_queues, queue_id);
+
+	queue->task_queue_finally_cb = finally_cb;
+}
+
+void msu_task_queue_set_user_data(const msu_task_queue_key_t *queue_id,
+				  gpointer user_data)
+{
+	msu_task_queue_t *queue;
+	msu_task_processor_t *processor = queue_id->processor;
+
+	queue = g_hash_table_lookup(processor->task_queues, queue_id);
+
+	queue->user_data = user_data;
+}
+
+gpointer msu_task_queue_get_user_data(const msu_task_queue_key_t *queue_id)
+{
+	msu_task_queue_t *queue;
+	msu_task_processor_t *processor = queue_id->processor;
+
+	queue = g_hash_table_lookup(processor->task_queues, queue_id);
+
+	return queue->user_data;
 }
