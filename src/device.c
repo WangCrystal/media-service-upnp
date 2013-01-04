@@ -1260,12 +1260,17 @@ void msu_device_get_children(msu_client_t *client,
 						 "SortCriteria", G_TYPE_STRING,
 						 sort_by,
 						 NULL);
+
 	cb_data->proxy = context->service_proxy;
 
-	cb_data->cancel_id =
-		g_cancellable_connect(cancellable,
-				      G_CALLBACK(msu_async_task_cancelled),
-				      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	MSU_LOG_DEBUG("Exit");
@@ -1451,10 +1456,14 @@ static void prv_get_system_update_id_for_prop(GUPnPServiceProxy *proxy,
 
 	cb_data->proxy = proxy;
 
-	cb_data->cancel_id =
-	g_cancellable_connect(cancellable,
-			      G_CALLBACK(msu_async_task_cancelled),
-			      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 on_complete:
@@ -1544,10 +1553,14 @@ static void prv_get_system_update_id_for_props(GUPnPServiceProxy *proxy,
 
 	cb_data->proxy = proxy;
 
-	cb_data->cancel_id =
-	g_cancellable_connect(cancellable,
-			      G_CALLBACK(msu_async_task_cancelled),
-			      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 on_complete:
@@ -1646,9 +1659,14 @@ static void prv_get_sr_token_for_prop(GUPnPServiceProxy *proxy,
 
 	cb_data->proxy = proxy;
 
-	cb_data->cancel_id = g_cancellable_connect(cancellable,
+	g_object_add_weak_pointer((G_OBJECT(proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
 					G_CALLBACK(msu_async_task_cancelled),
 					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 on_error:
@@ -1731,9 +1749,14 @@ static void prv_get_sr_token_for_props(GUPnPServiceProxy *proxy,
 
 	cb_data->proxy = proxy;
 
-	cb_data->cancel_id = g_cancellable_connect(cancellable,
+	g_object_add_weak_pointer((G_OBJECT(proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
 					G_CALLBACK(msu_async_task_cancelled),
 					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	MSU_LOG_DEBUG("Exit");
@@ -1890,22 +1913,26 @@ static void prv_get_all_ms2spec_props(msu_device_context_t *context,
 	}
 
 	cb_data->action = gupnp_service_proxy_begin_action(
-		context->service_proxy, "Browse",
-		prv_get_all_ms2spec_props_cb, cb_data,
-		"ObjectID", G_TYPE_STRING, task->target.id,
-		"BrowseFlag", G_TYPE_STRING, "BrowseMetadata",
-		"Filter", G_TYPE_STRING, "*",
-		"StartingIndex", G_TYPE_INT, 0,
-		"RequestedCount", G_TYPE_INT, 0,
-		"SortCriteria", G_TYPE_STRING,
-		"", NULL);
+				context->service_proxy, "Browse",
+				prv_get_all_ms2spec_props_cb, cb_data,
+				"ObjectID", G_TYPE_STRING, task->target.id,
+				"BrowseFlag", G_TYPE_STRING, "BrowseMetadata",
+				"Filter", G_TYPE_STRING, "*",
+				"StartingIndex", G_TYPE_INT, 0,
+				"RequestedCount", G_TYPE_INT, 0,
+				"SortCriteria", G_TYPE_STRING,
+				"", NULL);
 
 	cb_data->proxy = context->service_proxy;
 
-	cb_data->cancel_id =
-		g_cancellable_connect(cancellable,
-				      G_CALLBACK(msu_async_task_cancelled),
-				      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	MSU_LOG_DEBUG("Exit with SUCCESS");
@@ -2285,25 +2312,29 @@ static void prv_get_ms2spec_prop(msu_device_context_t *context,
 	}
 
 	cb_data->action = gupnp_service_proxy_begin_action(
-		context->service_proxy, "Browse",
-		prv_get_ms2spec_prop_cb,
-		cb_data,
-		"ObjectID", G_TYPE_STRING, cb_data->task->target.id,
-		"BrowseFlag", G_TYPE_STRING,
-		"BrowseMetadata",
-		"Filter", G_TYPE_STRING, filter,
-		"StartingIndex", G_TYPE_INT, 0,
-		"RequestedCount", G_TYPE_INT, 0,
-		"SortCriteria", G_TYPE_STRING,
-		"",
-		NULL);
+			context->service_proxy, "Browse",
+			prv_get_ms2spec_prop_cb,
+			cb_data,
+			"ObjectID", G_TYPE_STRING, cb_data->task->target.id,
+			"BrowseFlag", G_TYPE_STRING,
+			"BrowseMetadata",
+			"Filter", G_TYPE_STRING, filter,
+			"StartingIndex", G_TYPE_INT, 0,
+			"RequestedCount", G_TYPE_INT, 0,
+			"SortCriteria", G_TYPE_STRING,
+			"",
+			NULL);
 
 	cb_data->proxy = context->service_proxy;
 
-	cb_data->cancel_id =
-		g_cancellable_connect(cancellable,
-				      G_CALLBACK(msu_async_task_cancelled),
-				      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	MSU_LOG_DEBUG("Exit with SUCCESS");
@@ -2591,23 +2622,27 @@ void msu_device_search(msu_client_t *client,
 	context = msu_device_get_context(task->target.device, client);
 
 	cb_data->action = gupnp_service_proxy_begin_action(
-		context->service_proxy, "Search",
-		prv_search_cb,
-		cb_data,
-		"ContainerID", G_TYPE_STRING, task->target.id,
-		"SearchCriteria", G_TYPE_STRING, upnp_query,
-		"Filter", G_TYPE_STRING, upnp_filter,
-		"StartingIndex", G_TYPE_INT, task->ut.search.start,
-		"RequestedCount", G_TYPE_INT, task->ut.search.count,
-		"SortCriteria", G_TYPE_STRING, sort_by,
-		NULL);
+			context->service_proxy, "Search",
+			prv_search_cb,
+			cb_data,
+			"ContainerID", G_TYPE_STRING, task->target.id,
+			"SearchCriteria", G_TYPE_STRING, upnp_query,
+			"Filter", G_TYPE_STRING, upnp_filter,
+			"StartingIndex", G_TYPE_INT, task->ut.search.start,
+			"RequestedCount", G_TYPE_INT, task->ut.search.count,
+			"SortCriteria", G_TYPE_STRING, sort_by,
+			NULL);
 
 	cb_data->proxy = context->service_proxy;
 
-	cb_data->cancel_id =
-		g_cancellable_connect(cancellable,
-				      G_CALLBACK(msu_async_task_cancelled),
-				      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	MSU_LOG_DEBUG("Exit");
@@ -2645,22 +2680,26 @@ void msu_device_get_resource(msu_client_t *client,
 	cb_task_data->device_object = FALSE;
 
 	cb_data->action = gupnp_service_proxy_begin_action(
-		context->service_proxy, "Browse",
-		prv_get_all_ms2spec_props_cb, cb_data,
-		"ObjectID", G_TYPE_STRING, task->target.id,
-		"BrowseFlag", G_TYPE_STRING, "BrowseMetadata",
-		"Filter", G_TYPE_STRING, upnp_filter,
-		"StartingIndex", G_TYPE_INT, 0,
-		"RequestedCount", G_TYPE_INT, 0,
-		"SortCriteria", G_TYPE_STRING,
-		"", NULL);
+				context->service_proxy, "Browse",
+				prv_get_all_ms2spec_props_cb, cb_data,
+				"ObjectID", G_TYPE_STRING, task->target.id,
+				"BrowseFlag", G_TYPE_STRING, "BrowseMetadata",
+				"Filter", G_TYPE_STRING, upnp_filter,
+				"StartingIndex", G_TYPE_INT, 0,
+				"RequestedCount", G_TYPE_INT, 0,
+				"SortCriteria", G_TYPE_STRING,
+				"", NULL);
 
 	cb_data->proxy = context->service_proxy;
 
-	cb_data->cancel_id =
-		g_cancellable_connect(cancellable,
-				      G_CALLBACK(msu_async_task_cancelled),
-				      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	MSU_LOG_DEBUG("Exit");
@@ -3320,18 +3359,22 @@ void msu_device_upload(msu_client_t *client,
 	MSU_LOG_DEBUG_NL();
 
 	cb_data->action = gupnp_service_proxy_begin_action(
-		context->service_proxy, "CreateObject",
-		prv_create_object_upload_cb, cb_data,
-		"ContainerID", G_TYPE_STRING, parent_id,
-		"Elements", G_TYPE_STRING, didl,
-		NULL);
+					context->service_proxy, "CreateObject",
+					prv_create_object_upload_cb, cb_data,
+					"ContainerID", G_TYPE_STRING, parent_id,
+					"Elements", G_TYPE_STRING, didl,
+					NULL);
 
 	cb_data->proxy = context->service_proxy;
 
-	cb_data->cancel_id =
-		g_cancellable_connect(cancellable,
-				      G_CALLBACK(msu_async_task_cancelled),
-				      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	g_free(didl);
@@ -3476,9 +3519,13 @@ void msu_device_delete_object(msu_client_t *client,
 
 	cb_data->proxy = context->service_proxy;
 
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
 	cb_data->cancel_id = g_cancellable_connect(cancellable,
 					G_CALLBACK(msu_async_task_cancelled),
 					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	MSU_LOG_DEBUG("Exit");
@@ -3502,18 +3549,22 @@ void msu_device_create_container(msu_client_t *client,
 	MSU_LOG_DEBUG("DIDL: %s", didl);
 
 	cb_data->action = gupnp_service_proxy_begin_action(
-				context->service_proxy, "CreateObject",
-				prv_create_container_cb, cb_data,
-				"ContainerID", G_TYPE_STRING, parent_id,
-				"Elements", G_TYPE_STRING, didl,
-				NULL);
+					context->service_proxy, "CreateObject",
+					prv_create_container_cb, cb_data,
+					"ContainerID", G_TYPE_STRING, parent_id,
+					"Elements", G_TYPE_STRING, didl,
+					NULL);
 
 	cb_data->proxy = context->service_proxy;
 
-	cb_data->cancel_id =
-		g_cancellable_connect(cancellable,
-				      G_CALLBACK(msu_async_task_cancelled),
-				      cb_data, NULL);
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	cb_data->cancel_id = g_cancellable_connect(
+					cancellable,
+					G_CALLBACK(msu_async_task_cancelled),
+					cb_data, NULL);
+
 	cb_data->cancellable = cancellable;
 
 	g_free(didl);
@@ -3846,6 +3897,9 @@ void msu_device_update_object(msu_client_t *client,
 				"", NULL);
 
 	cb_data->proxy = context->service_proxy;
+
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
 
 	cb_data->cancel_id = g_cancellable_connect(cancellable,
 					G_CALLBACK(msu_async_task_cancelled),
