@@ -23,6 +23,7 @@ media_service_upnp_sources = 	src/async.c		 \
 				src/path.c		 \
 				src/props.c		 \
 				src/search.c		 \
+				src/service-task.c	 \
 				src/settings.c		 \
 				src/sort.c		 \
 				src/task.c		 \
@@ -40,6 +41,7 @@ media_service_upnp_headers =	src/async.h		 \
 				src/path.h		 \
 				src/props.h		 \
 				src/search.h		 \
+				src/service-task.h	 \
 				src/settings.h		 \
 				src/sort.h		 \
 				src/task.h		 \

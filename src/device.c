@@ -31,6 +31,7 @@
 #include <libsoup/soup.h>
 
 #include "chain-task.h"
+#include "service-task.h"
 #include "device.h"
 #include "error.h"
 #include "interface.h"
@@ -631,15 +632,16 @@ on_error:
 }
 
 static GUPnPServiceProxyAction *prv_get_feature_list(
-						msu_chain_task_t *chain,
+						msu_service_task_t *task,
 						GUPnPServiceProxy *proxy,
 						gboolean *failed)
 {
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(proxy, "GetFeatureList",
-						msu_chain_task_begin_action_cb,
-						chain, NULL);
+	return gupnp_service_proxy_begin_action(
+					proxy, "GetFeatureList",
+					msu_service_task_begin_action_cb,
+					task, NULL);
 }
 
 static void prv_get_sort_ext_capabilities_analyze(msu_device_t *device,
@@ -705,16 +707,17 @@ on_error:
 }
 
 static GUPnPServiceProxyAction *prv_get_sort_ext_capabilities(
-						msu_chain_task_t *chain,
+						msu_service_task_t *task,
 						GUPnPServiceProxy *proxy,
 						gboolean *failed)
 {
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(proxy,
-						"GetSortExtensionCapabilities",
-						msu_chain_task_begin_action_cb,
-						chain, NULL);
+	return gupnp_service_proxy_begin_action(
+					proxy,
+					"GetSortExtensionCapabilities",
+					msu_service_task_begin_action_cb,
+					task, NULL);
 }
 
 static void prv_get_capabilities_analyze(GHashTable *property_map,
@@ -752,8 +755,8 @@ static void prv_get_capabilities_analyze(GHashTable *property_map,
 }
 
 static void prv_get_sort_capabilities_cb(GUPnPServiceProxy *proxy,
-					   GUPnPServiceProxyAction *action,
-					   gpointer user_data)
+					 GUPnPServiceProxyAction *action,
+					 gpointer user_data)
 {
 	gchar *result = NULL;
 	GError *error = NULL;
@@ -780,16 +783,17 @@ on_error:
 }
 
 static GUPnPServiceProxyAction *prv_get_sort_capabilities(
-					msu_chain_task_t *chain,
+					msu_service_task_t *task,
 					GUPnPServiceProxy *proxy,
 					gboolean *failed)
 {
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(proxy,
-						"GetSortCapabilities",
-						msu_chain_task_begin_action_cb,
-						chain, NULL);
+	return gupnp_service_proxy_begin_action(
+					proxy,
+					"GetSortCapabilities",
+					msu_service_task_begin_action_cb,
+					task, NULL);
 }
 
 static void prv_get_search_capabilities_cb(GUPnPServiceProxy *proxy,
@@ -821,24 +825,25 @@ on_error:
 }
 
 static GUPnPServiceProxyAction *prv_get_search_capabilities(
-					msu_chain_task_t *chain,
+					msu_service_task_t *task,
 					GUPnPServiceProxy *proxy,
 					gboolean *failed)
 {
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(proxy, "GetSearchCapabilities",
-						msu_chain_task_begin_action_cb,
-						chain, NULL);
+	return gupnp_service_proxy_begin_action(
+					proxy, "GetSearchCapabilities",
+					msu_service_task_begin_action_cb,
+					task, NULL);
 }
 
-static GUPnPServiceProxyAction *prv_subscribe(msu_chain_task_t *chain,
+static GUPnPServiceProxyAction *prv_subscribe(msu_service_task_t *task,
 					      GUPnPServiceProxy *proxy,
 					      gboolean *failed)
 {
 	msu_device_t *device;
 
-	device = msu_chain_task_get_device(chain);
+	device = msu_service_task_get_device(task);
 	msu_device_subscribe_to_contents_change(device);
 
 	*failed = FALSE;
@@ -846,7 +851,7 @@ static GUPnPServiceProxyAction *prv_subscribe(msu_chain_task_t *chain,
 	return NULL;
 }
 
-static GUPnPServiceProxyAction *prv_declare(msu_chain_task_t *chain,
+static GUPnPServiceProxyAction *prv_declare(msu_service_task_t *task,
 					    GUPnPServiceProxy *proxy,
 					    gboolean *failed)
 {
@@ -855,9 +860,9 @@ static GUPnPServiceProxyAction *prv_declare(msu_chain_task_t *chain,
 	msu_device_t *device;
 	prv_new_device_ct_t *priv_t;
 
-	device = msu_chain_task_get_device(chain);
+	device = msu_service_task_get_device(task);
 
-	priv_t = (prv_new_device_ct_t *)msu_chain_task_get_user_data(chain);
+	priv_t = (prv_new_device_ct_t *)msu_service_task_get_user_data(task);
 
 	flags = G_DBUS_SUBTREE_FLAGS_DISPATCH_TO_UNENUMERATED_NODES;
 	id =  g_dbus_connection_register_subtree(priv_t->connection,
@@ -874,11 +879,11 @@ static GUPnPServiceProxyAction *prv_declare(msu_chain_task_t *chain,
 						g_int_equal,
 						g_free,
 						prv_msu_device_upload_delete);
-		device->upload_jobs =
-			g_hash_table_new_full(g_int_hash,
-					      g_int_equal,
-					      g_free,
-					      prv_msu_upload_job_delete);
+		device->upload_jobs = g_hash_table_new_full(
+						g_int_hash,
+						g_int_equal,
+						g_free,
+						prv_msu_upload_job_delete);
 
 	} else {
 		MSU_LOG_WARNING("g_dbus_connection_register_subtree FAILED");
@@ -896,7 +901,7 @@ msu_device_t *msu_device_new(GDBusConnection *connection,
 			     void *user_data,
 			     GHashTable *property_map,
 			     guint counter,
-			     msu_chain_task_t *chain)
+			     const msu_task_queue_key_t *queue_id)
 {
 	msu_device_t *dev;
 	prv_new_device_ct_t *priv_t;
@@ -925,25 +930,28 @@ msu_device_t *msu_device_new(GDBusConnection *connection,
 	context = msu_device_append_new_context(dev, ip_address, proxy);
 	s_proxy = context->service_proxy;
 
-	msu_chain_task_add(chain, prv_get_search_capabilities, dev, s_proxy,
-			   prv_get_search_capabilities_cb, NULL, priv_t);
+	msu_service_task_add(queue_id, prv_get_search_capabilities,
+			     dev, s_proxy,
+			     prv_get_search_capabilities_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_get_sort_capabilities, dev, s_proxy,
-			   prv_get_sort_capabilities_cb, NULL, priv_t);
+	msu_service_task_add(queue_id, prv_get_sort_capabilities,
+			     dev, s_proxy,
+			     prv_get_sort_capabilities_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_get_sort_ext_capabilities, dev, s_proxy,
-			   prv_get_sort_ext_capabilities_cb, NULL, priv_t);
+	msu_service_task_add(queue_id, prv_get_sort_ext_capabilities,
+			     dev, s_proxy,
+			     prv_get_sort_ext_capabilities_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_get_feature_list, dev, s_proxy,
-			   prv_get_feature_list_cb, NULL, priv_t);
+	msu_service_task_add(queue_id, prv_get_feature_list, dev, s_proxy,
+			     prv_get_feature_list_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_subscribe, dev,  s_proxy,
-			   NULL, NULL, NULL);
+	msu_service_task_add(queue_id, prv_subscribe, dev, s_proxy,
+			     NULL, NULL, NULL);
 
-	msu_chain_task_add(chain, prv_declare, dev, s_proxy,
-			   NULL, g_free, priv_t);
+	msu_service_task_add(queue_id, prv_declare, dev, s_proxy,
+			     NULL, g_free, priv_t);
 
-	msu_chain_task_start(chain);
+	msu_task_queue_start(queue_id);
 
 	return dev;
 }

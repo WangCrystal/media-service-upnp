@@ -27,7 +27,7 @@
 #include <libgupnp/gupnp-error.h>
 
 #include "async.h"
-#include "chain-task.h"
+#include "service-task.h"
 #include "device.h"
 #include "error.h"
 #include "interface.h"
@@ -51,13 +51,13 @@ struct msu_upnp_t_ {
 	guint counter;
 };
 
-/* Private structure used in chain task */
+/* Private structure used in service task */
 typedef struct prv_device_new_ct_t_ prv_device_new_ct_t;
 struct prv_device_new_ct_t_ {
 	msu_upnp_t *upnp;
 	char *udn;
 	msu_device_t *device;
-	msu_chain_task_t *chain;
+	const msu_task_queue_key_t *queue_id;
 };
 
 static gchar **prv_subtree_enumerate(GDBusConnection *connection,
@@ -186,20 +186,24 @@ static const GDBusInterfaceVTable *prv_subtree_dispatch(
 	return retval;
 }
 
-static void prv_device_chain_end(msu_chain_task_t *chain,
-				 GUPnPServiceProxy *proxy,
-				 gpointer data)
+static void prv_device_new_free(prv_device_new_ct_t *priv_t)
+{
+	if (priv_t) {
+		g_free(priv_t->udn);
+		g_free(priv_t);
+	}
+}
+
+static void prv_device_chain_end(gboolean cancelled, gpointer data)
 {
 	msu_device_t *device;
-	gboolean canceled;
 	prv_device_new_ct_t *priv_t = (prv_device_new_ct_t *)data;
 
 	MSU_LOG_DEBUG("Enter");
 
 	device = priv_t->device;
-	canceled = msu_chain_task_is_canceled(chain);
 
-	if (canceled)
+	if (cancelled)
 		goto on_clear;
 
 	MSU_LOG_DEBUG("Notify new server available: %s", device->path);
@@ -210,21 +214,12 @@ static void prv_device_chain_end(msu_chain_task_t *chain,
 on_clear:
 
 	g_hash_table_remove(priv_t->upnp->server_uc_map, priv_t->udn);
+	prv_device_new_free(priv_t);
 
-	if (canceled)
+	if (cancelled)
 		msu_device_delete(device);
 
 	MSU_LOG_DEBUG_NL();
-}
-
-static void prv_device_new_free(gpointer data)
-{
-	prv_device_new_ct_t *priv_t = (prv_device_new_ct_t *)data;
-
-	if (priv_t) {
-		g_free(priv_t->udn);
-		g_free(priv_t);
-	}
 }
 
 static void prv_server_available_cb(GUPnPControlPoint *cp,
@@ -236,7 +231,7 @@ static void prv_server_available_cb(GUPnPControlPoint *cp,
 	msu_device_t *device;
 	const gchar *ip_address;
 	msu_device_context_t *context;
-	msu_chain_task_t *chain;
+	const msu_task_queue_key_t *queue_id;
 	unsigned int i;
 	prv_device_new_ct_t *priv_t;
 
@@ -264,20 +259,28 @@ static void prv_server_available_cb(GUPnPControlPoint *cp,
 		MSU_LOG_DEBUG_NL();
 
 		priv_t = g_new0(prv_device_new_ct_t, 1);
-		chain = msu_chain_task_new();
-		msu_chain_task_set_end(chain, prv_device_chain_end, NULL,
-				       prv_device_new_free, priv_t);
+
+		queue_id = msu_task_processor_add_queue(
+				msu_media_service_get_task_processor(),
+				msu_service_task_create_source(),
+				MSU_SINK,
+				MSU_TASK_QUEUE_FLAG_AUTO_REMOVE,
+				msu_service_task_process_cb,
+				msu_service_task_cancel_cb,
+				msu_service_task_delete_cb);
+		msu_task_queue_set_finally(queue_id, prv_device_chain_end);
+		msu_task_queue_set_user_data(queue_id, priv_t);
 
 		device = msu_device_new(upnp->connection, proxy, ip_address,
 					&gSubtreeVtable, upnp,
 					upnp->property_map, upnp->counter,
-					chain);
+					queue_id);
 
 		upnp->counter++;
 
 		priv_t->upnp = upnp;
 		priv_t->udn = g_strdup(udn);
-		priv_t->chain = chain;
+		priv_t->queue_id = queue_id;
 		priv_t->device = device;
 
 		g_hash_table_insert(upnp->server_uc_map, g_strdup(udn), priv_t);
@@ -378,14 +381,7 @@ static void prv_server_unavailable_cb(GUPnPControlPoint *cp,
 			MSU_LOG_WARNING(
 				"Device under construction. Cancelling");
 
-			msu_chain_task_cancel(priv_t->chain);
-
-			if (!msu_main_is_running()) {
-				MSU_LOG_DEBUG("GMain Loop not running");
-				prv_device_chain_end(priv_t->chain, NULL,
-						     priv_t);
-				msu_chain_task_delete(priv_t->chain);
-			}
+			msu_task_processor_cancel_queue(priv_t->queue_id);
 		}
 	} else if (subscribed && !device->timeout_id) {
 		MSU_LOG_DEBUG("Subscribe on new context");

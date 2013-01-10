@@ -26,7 +26,7 @@
 #include <libgupnp/gupnp-control-point.h>
 
 #include "async.h"
-#include "chain-task.h"
+#include "task-processor.h"
 #include "client.h"
 #include "props.h"
 
@@ -67,7 +67,7 @@ msu_device_t *msu_device_new(GDBusConnection *connection,
 			     void *user_data,
 			     GHashTable *filter_map,
 			     guint counter,
-			     msu_chain_task_t *chain);
+			     const msu_task_queue_key_t *queue_id);
 
 msu_device_t *msu_device_from_path(const gchar *path, GHashTable *device_list);
 msu_device_context_t *msu_device_get_context(const msu_device_t *device,
