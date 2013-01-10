@@ -55,7 +55,7 @@ struct msu_upnp_t_ {
 typedef struct prv_device_new_ct_t_ prv_device_new_ct_t;
 struct prv_device_new_ct_t_ {
 	msu_upnp_t *upnp;
-	const char *udn;
+	char *udn;
 	msu_device_t *device;
 	msu_chain_task_t *chain;
 };
@@ -183,15 +183,18 @@ static const GDBusInterfaceVTable *prv_subtree_dispatch(
 		retval = upnp->interface_info[
 			MSU_INTERFACE_INFO_DEVICE].vtable;
 
-
 	return retval;
 }
 
-static void prv_device_chain_end(msu_chain_task_t *chain, gpointer data)
+static void prv_device_chain_end(msu_chain_task_t *chain,
+				 GUPnPServiceProxy *proxy,
+				 gpointer data)
 {
 	msu_device_t *device;
 	gboolean canceled;
 	prv_device_new_ct_t *priv_t = (prv_device_new_ct_t *)data;
+
+	MSU_LOG_DEBUG("Enter");
 
 	device = priv_t->device;
 	canceled = msu_chain_task_is_canceled(chain);
@@ -207,13 +210,21 @@ static void prv_device_chain_end(msu_chain_task_t *chain, gpointer data)
 on_clear:
 
 	g_hash_table_remove(priv_t->upnp->server_uc_map, priv_t->udn);
-	msu_chain_task_delete(chain);
-	g_free(priv_t);
 
 	if (canceled)
 		msu_device_delete(device);
 
 	MSU_LOG_DEBUG_NL();
+}
+
+static void prv_device_new_free(gpointer data)
+{
+	prv_device_new_ct_t *priv_t = (prv_device_new_ct_t *)data;
+
+	if (priv_t) {
+		g_free(priv_t->udn);
+		g_free(priv_t);
+	}
 }
 
 static void prv_server_available_cb(GUPnPControlPoint *cp,
@@ -253,7 +264,10 @@ static void prv_server_available_cb(GUPnPControlPoint *cp,
 		MSU_LOG_DEBUG_NL();
 
 		priv_t = g_new0(prv_device_new_ct_t, 1);
-		chain = msu_chain_task_new(prv_device_chain_end, priv_t);
+		chain = msu_chain_task_new();
+		msu_chain_task_set_end(chain, prv_device_chain_end, NULL,
+				       prv_device_new_free, priv_t);
+
 		device = msu_device_new(upnp->connection, proxy, ip_address,
 					&gSubtreeVtable, upnp,
 					upnp->property_map, upnp->counter,
@@ -262,7 +276,7 @@ static void prv_server_available_cb(GUPnPControlPoint *cp,
 		upnp->counter++;
 
 		priv_t->upnp = upnp;
-		priv_t->udn = udn;
+		priv_t->udn = g_strdup(udn);
 		priv_t->chain = chain;
 		priv_t->device = device;
 
@@ -278,8 +292,8 @@ static void prv_server_available_cb(GUPnPControlPoint *cp,
 
 		if (i == device->contexts->len) {
 			MSU_LOG_DEBUG("Adding Context");
-			msu_device_append_new_context(device, ip_address,
-						      proxy);
+			(void) msu_device_append_new_context(device, ip_address,
+							     proxy);
 		}
 
 		MSU_LOG_DEBUG_NL();
@@ -348,33 +362,37 @@ static void prv_server_unavailable_cb(GUPnPControlPoint *cp,
 			break;
 	}
 
-	if (i < device->contexts->len) {
-		subscribed = context->subscribed;
+	if (i >= device->contexts->len)
+		goto on_error;
 
-		(void) g_ptr_array_remove_index(device->contexts, i);
-		if (device->contexts->len == 0) {
-			if (!under_construction) {
-				MSU_LOG_DEBUG(
-					"Last Context lost. Delete device");
+	subscribed = context->subscribed;
 
-				upnp->lost_server(device->path,
-						  upnp->user_data);
-				g_hash_table_remove(upnp->server_udn_map, udn);
-			} else {
-				MSU_LOG_WARNING(
-					"Device under construction. Cancelling");
+	(void) g_ptr_array_remove_index(device->contexts, i);
 
-				msu_chain_task_cancel(priv_t->chain);
-				prv_device_chain_end(priv_t->chain, priv_t);
+	if (device->contexts->len == 0) {
+		if (!under_construction) {
+			MSU_LOG_DEBUG("Last Context lost. Delete device");
+			upnp->lost_server(device->path, upnp->user_data);
+			g_hash_table_remove(upnp->server_udn_map, udn);
+		} else {
+			MSU_LOG_WARNING(
+				"Device under construction. Cancelling");
+
+			msu_chain_task_cancel(priv_t->chain);
+
+			if (!msu_main_is_running()) {
+				MSU_LOG_DEBUG("GMain Loop not running");
+				prv_device_chain_end(priv_t->chain, NULL,
+						     priv_t);
+				msu_chain_task_delete(priv_t->chain);
 			}
-		} else if (subscribed && !device->timeout_id) {
-
-			MSU_LOG_DEBUG("Subscribe on new context");
-
-			device->timeout_id = g_timeout_add_seconds(1,
-					prv_subscribe_to_contents_change,
-					device);
 		}
+	} else if (subscribed && !device->timeout_id) {
+		MSU_LOG_DEBUG("Subscribe on new context");
+
+		device->timeout_id = g_timeout_add_seconds(1,
+				prv_subscribe_to_contents_change,
+				device);
 	}
 
 on_error:
@@ -1177,4 +1195,50 @@ on_error:
 	(void) g_idle_add(msu_async_complete_task, cb_data);
 
 	MSU_LOG_DEBUG("Exit failure");
+}
+
+static gboolean prv_device_uc_find(gpointer key, gpointer value,
+				   gpointer user_data)
+{
+	prv_device_new_ct_t *priv_t = (prv_device_new_ct_t *)value;
+
+	return (priv_t->device == user_data) ? TRUE : FALSE;
+}
+
+static gboolean prv_device_find(gpointer key, gpointer value,
+				gpointer user_data)
+{
+	return (value == user_data) ? TRUE : FALSE;
+}
+
+gboolean msu_upnp_device_context_exist(msu_device_t *device,
+				       msu_device_context_t *context)
+{
+	gpointer result;
+	guint i;
+	gboolean found = FALSE;
+	msu_upnp_t *upnp = msu_media_service_get_upnp();
+
+	if (upnp == NULL)
+		goto on_exit;
+
+	/* Check if the device still exist */
+	result = g_hash_table_find(upnp->server_udn_map, prv_device_find,
+				   device);
+
+	if (result == NULL)
+		if (g_hash_table_find(upnp->server_uc_map, prv_device_uc_find,
+				      device) == NULL)
+			goto on_exit;
+
+	/* Search if the context still exist in the device */
+	for (i = 0; i < device->contexts->len; ++i) {
+		if (g_ptr_array_index(device->contexts, i) == context) {
+			found = TRUE;
+			break;
+		}
+	}
+
+on_exit:
+	return found;
 }

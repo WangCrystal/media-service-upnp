@@ -1278,6 +1278,16 @@ static void prv_unregister_client(gpointer user_data)
 	}
 }
 
+gboolean msu_main_is_running(void)
+{
+	return g_main_loop_is_running(g_context.main_loop);
+}
+
+msu_upnp_t *msu_media_service_get_upnp(void)
+{
+	return g_context.upnp;
+}
+
 int main(int argc, char *argv[])
 {
 	sigset_t mask;

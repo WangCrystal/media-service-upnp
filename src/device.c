@@ -63,8 +63,6 @@ struct msu_device_object_builder_t_ {
 	gboolean needs_child_count;
 };
 
-typedef struct msu_device_upload_job_t_ msu_device_upload_job_t;
-
 typedef struct msu_device_upload_t_ msu_device_upload_t;
 struct msu_device_upload_t_ {
 	SoupSession *soup_session;
@@ -77,6 +75,7 @@ struct msu_device_upload_t_ {
 	guint64 bytes_to_upload;
 };
 
+typedef struct msu_device_upload_job_t_ msu_device_upload_job_t;
 struct msu_device_upload_job_t_ {
 	gint upload_id;
 	msu_device_t *device;
@@ -631,18 +630,14 @@ on_error:
 	g_free(result);
 }
 
-static GUPnPServiceProxyAction *prv_get_feature_list(msu_chain_task_t *chain,
-						     gboolean *failed)
+static GUPnPServiceProxyAction *prv_get_feature_list(
+						msu_chain_task_t *chain,
+						GUPnPServiceProxy *proxy,
+						gboolean *failed)
 {
-	msu_device_t *device;
-	msu_device_context_t *context;
-
-	device = msu_chain_task_get_device(chain);
-	context = msu_device_get_context(device, NULL);
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(context->service_proxy,
-						"GetFeatureList",
+	return gupnp_service_proxy_begin_action(proxy, "GetFeatureList",
 						msu_chain_task_begin_action_cb,
 						chain, NULL);
 }
@@ -710,17 +705,13 @@ on_error:
 }
 
 static GUPnPServiceProxyAction *prv_get_sort_ext_capabilities(
-							msu_chain_task_t *chain,
-							gboolean *failed)
+						msu_chain_task_t *chain,
+						GUPnPServiceProxy *proxy,
+						gboolean *failed)
 {
-	msu_device_t *device;
-	msu_device_context_t *context;
-
-	device = msu_chain_task_get_device(chain);
-	context = msu_device_get_context(device, NULL);
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(context->service_proxy,
+	return gupnp_service_proxy_begin_action(proxy,
 						"GetSortExtensionCapabilities",
 						msu_chain_task_begin_action_cb,
 						chain, NULL);
@@ -790,16 +781,12 @@ on_error:
 
 static GUPnPServiceProxyAction *prv_get_sort_capabilities(
 					msu_chain_task_t *chain,
+					GUPnPServiceProxy *proxy,
 					gboolean *failed)
 {
-	msu_device_t *device;
-	msu_device_context_t *context;
-
-	device = msu_chain_task_get_device(chain);
-	context = msu_device_get_context(device, NULL);
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(context->service_proxy,
+	return gupnp_service_proxy_begin_action(proxy,
 						"GetSortCapabilities",
 						msu_chain_task_begin_action_cb,
 						chain, NULL);
@@ -835,22 +822,18 @@ on_error:
 
 static GUPnPServiceProxyAction *prv_get_search_capabilities(
 					msu_chain_task_t *chain,
+					GUPnPServiceProxy *proxy,
 					gboolean *failed)
 {
-	msu_device_t *device;
-	msu_device_context_t *context;
-
-	device = msu_chain_task_get_device(chain);
-	context = msu_device_get_context(device, NULL);
 	*failed = FALSE;
 
-	return gupnp_service_proxy_begin_action(context->service_proxy,
-						"GetSearchCapabilities",
+	return gupnp_service_proxy_begin_action(proxy, "GetSearchCapabilities",
 						msu_chain_task_begin_action_cb,
 						chain, NULL);
 }
 
 static GUPnPServiceProxyAction *prv_subscribe(msu_chain_task_t *chain,
+					      GUPnPServiceProxy *proxy,
 					      gboolean *failed)
 {
 	msu_device_t *device;
@@ -864,6 +847,7 @@ static GUPnPServiceProxyAction *prv_subscribe(msu_chain_task_t *chain,
 }
 
 static GUPnPServiceProxyAction *prv_declare(msu_chain_task_t *chain,
+					    GUPnPServiceProxy *proxy,
 					    gboolean *failed)
 {
 	guint flags;
@@ -917,6 +901,8 @@ msu_device_t *msu_device_new(GDBusConnection *connection,
 	msu_device_t *dev;
 	prv_new_device_ct_t *priv_t;
 	gchar *new_path;
+	msu_device_context_t *context;
+	GUPnPServiceProxy *s_proxy;
 
 	MSU_LOG_DEBUG("New Device on %s", ip_address);
 
@@ -936,36 +922,42 @@ msu_device_t *msu_device_new(GDBusConnection *connection,
 	priv_t->user_data = user_data;
 	priv_t->property_map = property_map;
 
-	msu_device_append_new_context(dev, ip_address, proxy);
+	context = msu_device_append_new_context(dev, ip_address, proxy);
+	s_proxy = context->service_proxy;
 
-	msu_chain_task_add(chain, prv_get_search_capabilities, dev,
+	msu_chain_task_add(chain, prv_get_search_capabilities, dev, s_proxy,
 			   prv_get_search_capabilities_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_get_sort_capabilities, dev,
+	msu_chain_task_add(chain, prv_get_sort_capabilities, dev, s_proxy,
 			   prv_get_sort_capabilities_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_get_sort_ext_capabilities, dev,
+	msu_chain_task_add(chain, prv_get_sort_ext_capabilities, dev, s_proxy,
 			   prv_get_sort_ext_capabilities_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_get_feature_list, dev,
+	msu_chain_task_add(chain, prv_get_feature_list, dev, s_proxy,
 			   prv_get_feature_list_cb, NULL, priv_t);
 
-	msu_chain_task_add(chain, prv_subscribe, dev, NULL, NULL, NULL);
-	msu_chain_task_add(chain, prv_declare, dev, NULL, g_free, priv_t);
+	msu_chain_task_add(chain, prv_subscribe, dev,  s_proxy,
+			   NULL, NULL, NULL);
+
+	msu_chain_task_add(chain, prv_declare, dev, s_proxy,
+			   NULL, g_free, priv_t);
 
 	msu_chain_task_start(chain);
 
 	return dev;
 }
 
-void msu_device_append_new_context(msu_device_t *device,
-				   const gchar *ip_address,
-				   GUPnPDeviceProxy *proxy)
+msu_device_context_t *msu_device_append_new_context(msu_device_t *device,
+						    const gchar *ip_address,
+						    GUPnPDeviceProxy *proxy)
 {
 	msu_device_context_t *context;
 
 	prv_msu_context_new(ip_address, proxy, device, &context);
 	g_ptr_array_add(device->contexts, context);
+
+	return context;
 }
 
 msu_device_t *msu_device_from_path(const gchar *path, GHashTable *device_list)
@@ -4019,6 +4011,7 @@ static void prv_create_didls_item_browse_cb(GUPnPServiceProxy *proxy,
 					    &result, NULL)) {
 		MSU_LOG_WARNING("Browse Object operation failed: %s",
 				error->message);
+		MSU_LOG_DEBUG_NL();
 
 		cb_data->error = g_error_new(MSU_ERROR,
 					     MSU_ERROR_OPERATION_FAILED,
@@ -4059,8 +4052,6 @@ static void prv_create_didls_item_browse_cb(GUPnPServiceProxy *proxy,
 
 on_error:
 
-	MSU_LOG_DEBUG_NL();
-
 	if (cb_data->error != NULL)
 		msu_chain_task_cancel(cb_data->ut.playlist.chain);
 
@@ -4074,21 +4065,19 @@ on_error:
 }
 
 static GUPnPServiceProxyAction *prv_create_didls_item_browse(
-							msu_chain_task_t *chain,
-							gboolean *failed)
+						msu_chain_task_t *chain,
+						GUPnPServiceProxy *proxy,
+						gboolean *failed)
 {
-	msu_device_context_t *context;
 	prv_new_playlist_ct_t *priv_t;
 
 	priv_t = (prv_new_playlist_ct_t *)msu_chain_task_get_user_data(chain);
-
-	context = priv_t->cb_data->ut.playlist.context;
 	*failed = FALSE;
 
 	MSU_LOG_DEBUG("Browse for ID: %s", priv_t->id);
 
 	return gupnp_service_proxy_begin_action(
-			context->service_proxy, "Browse",
+			proxy, "Browse",
 			msu_chain_task_begin_action_cb, chain,
 			"ObjectID", G_TYPE_STRING, priv_t->id,
 			"BrowseFlag", G_TYPE_STRING, "BrowseMetadata",
@@ -4099,6 +4088,7 @@ static GUPnPServiceProxyAction *prv_create_didls_item_browse(
 }
 
 static gboolean prv_create_chain_didls_items(msu_task_t *task,
+					     GUPnPServiceProxy *proxy,
 					     msu_async_cb_data_t *cb_data)
 {
 	gchar *root_path = NULL;
@@ -4139,6 +4129,7 @@ static gboolean prv_create_chain_didls_items(msu_task_t *task,
 		msu_chain_task_add(a_playlist->chain,
 				   prv_create_didls_item_browse,
 				   task->target.device,
+				   proxy,
 				   prv_create_didls_item_browse_cb,
 				   prv_didls_free, priv_t);
 	}
@@ -4209,7 +4200,9 @@ static void prv_create_playlist_object(msu_task_create_playlist_t *t_playlist,
 	g_free(time_c);
 }
 
-static void prv_create_didls_chain_end(msu_chain_task_t *chain, gpointer data)
+static void prv_create_didls_chain_end(msu_chain_task_t *chain,
+				       GUPnPServiceProxy *proxy,
+				       gpointer data)
 {
 	prv_new_playlist_ct_t *priv_t = data;
 	msu_async_cb_data_t *cb_data = priv_t->cb_data;
@@ -4231,13 +4224,13 @@ static void prv_create_didls_chain_end(msu_chain_task_t *chain, gpointer data)
 	if (cancelled)
 		goto on_clear;
 
-	t_playlist = &priv_t->cb_data->task->ut.playlist;
+	t_playlist = &cb_data->task->ut.playlist;
 	a_playlist = &cb_data->ut.playlist;
 	prv_create_playlist_object(t_playlist, a_playlist, priv_t->parent_id);
 
 	MSU_LOG_DEBUG("Creating object");
 	cb_data->action = gupnp_service_proxy_begin_action(
-				a_playlist->context->service_proxy,
+				proxy,
 				"CreateObject",
 				prv_playlist_upload_cb, cb_data,
 				"ContainerID", G_TYPE_STRING, priv_t->parent_id,
@@ -4258,7 +4251,7 @@ on_clear:
 		(void) g_idle_add(msu_async_complete_task, cb_data);
 	}
 
-	prv_didls_free(priv_t);
+	cb_data->ut.playlist.chain = NULL;
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -4272,7 +4265,6 @@ static void prv_create_chain_cancelled(GCancellable *cancellable,
 	MSU_LOG_DEBUG("Enter");
 
 	msu_chain_task_cancel(chain);
-	prv_create_didls_chain_end(chain, msu_chain_task_get_end_data(chain));
 }
 
 static gboolean prv_idle_chain_start(gpointer user_data)
@@ -4302,33 +4294,28 @@ void msu_device_playlist_upload(msu_client_t *client,
 	priv_t->cb_data = cb_data;
 	priv_t->parent_id = g_strdup(parent_id);
 
-	chain = msu_chain_task_new(prv_create_didls_chain_end, priv_t);
-
+	chain = msu_chain_task_new();
 	context = msu_device_get_context(task->target.device, client);
 
 	cb_data->proxy = context->service_proxy;
-	cb_data->ut.playlist.context = context;
 	cb_data->ut.playlist.chain = chain;
 	cb_data->cancellable = cancellable;
 
-	cb_data->cancel_id = g_cancellable_connect(
+	msu_chain_task_set_end(chain, prv_create_didls_chain_end,
+			       cb_data->proxy, prv_didls_free, priv_t);
+
+	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
+				  (gpointer *)&cb_data->proxy);
+
+	if (prv_create_chain_didls_items(task, cb_data->proxy, cb_data)) {
+		cb_data->cancel_id = g_cancellable_connect(
 					cb_data->cancellable,
 					G_CALLBACK(prv_create_chain_cancelled),
 					cb_data, NULL);
 
-	if (prv_create_chain_didls_items(task, cb_data)) {
 		g_idle_add(prv_idle_chain_start, chain);
 	} else {
-		prv_didls_free(priv_t);
-
 		(void) g_idle_add(msu_async_complete_task, cb_data);
-
-		if (cb_data->cancel_id) {
-			g_cancellable_disconnect(cb_data->cancellable,
-						 cb_data->cancel_id);
-
-			cb_data->cancel_id = 0;
-		}
 	}
 
 	MSU_LOG_DEBUG("Exit");

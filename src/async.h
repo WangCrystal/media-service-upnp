@@ -31,7 +31,6 @@
 #include "task.h"
 #include "upnp.h"
 
-typedef struct msu_device_context_t_ msu_device_context_t;
 typedef struct msu_async_cb_data_t_ msu_async_cb_data_t;
 typedef guint64 msu_upnp_prop_mask;
 
@@ -80,7 +79,6 @@ struct msu_async_update_t_ {
 typedef struct msu_async_playlist_t_ msu_async_playlist_t;
 struct msu_async_playlist_t_ {
 	msu_chain_task_t *chain;
-	msu_device_context_t *context;
 	GUPnPMediaCollection *collection;
 	gchar *didl;
 };

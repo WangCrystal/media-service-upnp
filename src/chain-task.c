@@ -34,13 +34,16 @@ struct msu_chain_task_atom_t_ {
 	gpointer user_data;
 	msu_chain_task_action t_action;
 	msu_device_t *device;
+	GUPnPServiceProxy *proxy;
 };
 
 struct msu_chain_task_t_ {
-	msu_chain_task_end end_func;
-	gpointer end_data;
 	GList *task_list;
 	msu_chain_task_atom_t *current;
+	msu_chain_task_end end_func;
+	GUPnPServiceProxy *end_proxy;
+	GDestroyNotify end_free_func;
+	gpointer end_data;
 	gboolean canceled;
 	guint idle_id;
 };
@@ -50,6 +53,10 @@ static void prv_free_atom(msu_chain_task_atom_t *atom)
 	if (atom->free_func != NULL)
 		atom->free_func(atom->user_data);
 
+	if (atom->proxy != NULL)
+		g_object_remove_weak_pointer((G_OBJECT(atom->proxy)),
+					     (gpointer *)&atom->proxy);
+
 	g_free(atom);
 }
 
@@ -57,7 +64,16 @@ static gboolean prv_idle_end_func(gpointer user_data)
 {
 	msu_chain_task_t *chain = (msu_chain_task_t *)user_data;
 
-	chain->end_func(chain, chain->end_data);
+	chain->end_func(chain, chain->end_proxy, chain->end_data);
+
+	if (chain->end_free_func) {
+		chain->end_free_func(chain->end_data);
+		chain->end_data = NULL;
+		chain->end_free_func = NULL;
+	}
+
+	msu_chain_task_delete(chain);
+
 	return FALSE;
 }
 
@@ -116,23 +132,14 @@ gpointer *msu_chain_task_get_end_data(msu_chain_task_t *chain)
 
 void msu_chain_task_cancel(msu_chain_task_t *chain)
 {
-	msu_device_t *device;
-	msu_device_context_t *context = NULL;
-
-	if (chain->idle_id) {
-		g_source_remove(chain->idle_id);
-		chain->idle_id = 0;
-	}
-
-	device = msu_chain_task_get_device(chain);
-
-	if (device != NULL)
-		context = msu_device_get_context(device, NULL);
-
-	if (context && chain->current->p_action) {
-		gupnp_service_proxy_cancel_action(context->service_proxy,
-						  chain->current->p_action);
+	if (chain->current && chain->current->p_action) {
+		if (chain->current->proxy)
+			gupnp_service_proxy_cancel_action(
+						chain->current->proxy,
+						chain->current->p_action);
 		chain->current->p_action = NULL;
+
+		prv_next_task(chain);
 	}
 
 	chain->canceled = TRUE;
@@ -160,11 +167,14 @@ void msu_chain_task_begin_action_cb(GUPnPServiceProxy *proxy,
 void msu_chain_task_start(msu_chain_task_t *chain)
 {
 	gboolean failed = FALSE;
+	msu_chain_task_atom_t *current;
 
 	if ((chain->task_list != NULL) && (!chain->canceled)) {
-		chain->current = chain->task_list->data;
-		chain->current->p_action = chain->current->t_action(chain,
-								    &failed);
+		current = chain->task_list->data;
+		chain->current = current;
+		current->p_action = current->t_action(chain,
+						      current->proxy,
+						      &failed);
 		if (failed)
 			chain->canceled = TRUE;
 
@@ -173,10 +183,9 @@ void msu_chain_task_start(msu_chain_task_t *chain)
 		 * gupnp_service_proxy_begin_action has not been called.
 		 * In this latest case, prv_next_task will call end_func
 		 */
-		if (chain->current->p_action == NULL &&
-		    (chain->current->callback == NULL ||
-		     (chain->current->callback != NULL &&
-		      chain->canceled == TRUE)))
+		if (current->p_action == NULL &&
+		    (current->callback == NULL ||
+		     chain->canceled == TRUE))
 			prv_next_task(chain);
 	} else {
 		if (chain->end_func)
@@ -184,9 +193,22 @@ void msu_chain_task_start(msu_chain_task_t *chain)
 	}
 }
 
+void msu_chain_task_set_end(msu_chain_task_t *chain,
+			    msu_chain_task_end end_func,
+			    GUPnPServiceProxy *proxy,
+			    GDestroyNotify free_func,
+			    gpointer end_data)
+{
+	chain->end_func = end_func;
+	chain->end_proxy = proxy;
+	chain->end_free_func = free_func;
+	chain->end_data = end_data;
+}
+
 void msu_chain_task_add(msu_chain_task_t *chain,
 			msu_chain_task_action action,
 			msu_device_t *device,
+			GUPnPServiceProxy *proxy,
 			GUPnPServiceProxyActionCallback action_cb,
 			GDestroyNotify free_func,
 			gpointer cb_user_data)
@@ -200,6 +222,11 @@ void msu_chain_task_add(msu_chain_task_t *chain,
 	atom->free_func = free_func;
 	atom->user_data = cb_user_data;
 	atom->device = device;
+	atom->proxy = proxy;
+
+	if (proxy != NULL)
+		g_object_add_weak_pointer((G_OBJECT(proxy)),
+					  (gpointer *)&atom->proxy);
 
 	chain->task_list = g_list_append(chain->task_list, atom);
 }
@@ -208,17 +235,17 @@ void msu_chain_task_delete(msu_chain_task_t *chain)
 {
 	g_list_free_full(chain->task_list, (GDestroyNotify)prv_free_atom);
 	chain->task_list = NULL;
+
+	if (chain->end_free_func) {
+		chain->end_free_func(chain->end_data);
+		chain->end_data = NULL;
+		chain->end_free_func = NULL;
+	}
+
 	g_free(chain);
 }
 
-msu_chain_task_t *msu_chain_task_new(msu_chain_task_end end_func,
-				     gpointer end_data)
+msu_chain_task_t *msu_chain_task_new(void)
 {
-	msu_chain_task_t *chain;
-
-	chain = g_new0(msu_chain_task_t, 1);
-	chain->end_func = end_func;
-	chain->end_data = end_data;
-
-	return chain;
+	return g_new0(msu_chain_task_t, 1);
 }

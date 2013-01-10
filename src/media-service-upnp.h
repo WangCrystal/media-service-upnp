@@ -26,11 +26,17 @@
 #include <glib.h>
 
 typedef struct msu_device_t_ msu_device_t;
+typedef struct msu_device_context_t_ msu_device_context_t;
+typedef struct msu_upnp_t_ msu_upnp_t;
 
 gboolean msu_media_service_get_object_info(const gchar *object_path,
 					   gchar **root_path,
 					   gchar **object_id,
 					   msu_device_t **device,
 					   GError **error);
+
+gboolean msu_main_is_running(void);
+
+msu_upnp_t *msu_media_service_get_upnp(void);
 
 #endif /* MSU_MEDIA_SERVICE_UPNP_H__ */

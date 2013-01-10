@@ -30,18 +30,28 @@
 typedef struct msu_chain_task_t_ msu_chain_task_t;
 
 typedef GUPnPServiceProxyAction * (*msu_chain_task_action)
-				(msu_chain_task_t *chain, gboolean *failed);
+					(msu_chain_task_t *chain,
+					 GUPnPServiceProxy *proxy,
+					 gboolean *failed);
 
-typedef void (*msu_chain_task_end)(msu_chain_task_t *chain, gpointer data);
+typedef void (*msu_chain_task_end)(msu_chain_task_t *chain,
+				   GUPnPServiceProxy *proxy,
+				   gpointer data);
 
-msu_chain_task_t *msu_chain_task_new(msu_chain_task_end end_func,
-				     gpointer end_data);
+msu_chain_task_t *msu_chain_task_new(void);
 
 void msu_chain_task_delete(msu_chain_task_t *chain);
+
+void msu_chain_task_set_end(msu_chain_task_t *chain,
+			    msu_chain_task_end end_func,
+			    GUPnPServiceProxy *proxy,
+			    GDestroyNotify free_func,
+			    gpointer end_data);
 
 void msu_chain_task_add(msu_chain_task_t *chain,
 			msu_chain_task_action action,
 			msu_device_t *device,
+			GUPnPServiceProxy *proxy,
 			GUPnPServiceProxyActionCallback action_cb,
 			GDestroyNotify free_func,
 			gpointer cb_user_data);

@@ -26,8 +26,6 @@
 #include "client.h"
 #include "task.h"
 
-typedef struct msu_upnp_t_ msu_upnp_t;
-
 enum msu_interface_type_ {
 	MSU_INTERFACE_INFO_PROPERTIES,
 	MSU_INTERFACE_INFO_OBJECT,
@@ -110,4 +108,8 @@ void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				     msu_task_t *task,
 				     GCancellable *cancellable,
 				     msu_upnp_task_complete_t cb);
+
+gboolean msu_upnp_device_context_exist(msu_device_t *device,
+				       msu_device_context_t *context);
+
 #endif
