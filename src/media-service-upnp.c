@@ -37,7 +37,6 @@
 #include "path.h"
 #include "settings.h"
 #include "task.h"
-#include "task-processor.h"
 #include "upnp.h"
 
 typedef struct msu_context_t_ msu_context_t;
@@ -57,8 +56,6 @@ struct msu_context_t_ {
 };
 
 static msu_context_t g_context;
-
-#define MSU_SINK "media-service-upnp"
 
 static const gchar g_msu_root_introspection[] =
 	"<node>"
@@ -453,6 +450,11 @@ static const gchar g_msu_server_introspection[] =
 	"</node>";
 
 static void prv_process_task(msu_task_atom_t *task, GCancellable **cancellable);
+
+msu_task_processor_t * msu_media_service_get_task_processor(void)
+{
+	return g_context.processor;
+}
 
 static gboolean prv_context_quit_cb(gpointer user_data)
 {
