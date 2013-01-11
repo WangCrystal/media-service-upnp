@@ -27,7 +27,7 @@
 #include <libgupnp-av/gupnp-media-collection.h>
 
 #include "media-service-upnp.h"
-#include "chain-task.h"
+#include "task-atom.h"
 #include "task.h"
 #include "upnp.h"
 
@@ -78,7 +78,7 @@ struct msu_async_update_t_ {
 
 typedef struct msu_async_playlist_t_ msu_async_playlist_t;
 struct msu_async_playlist_t_ {
-	msu_chain_task_t *chain;
+	const msu_task_queue_key_t *queue_id;
 	GUPnPMediaCollection *collection;
 	gchar *didl;
 };

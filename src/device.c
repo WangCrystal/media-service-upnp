@@ -30,13 +30,12 @@
 
 #include <libsoup/soup.h>
 
-#include "chain-task.h"
-#include "service-task.h"
 #include "device.h"
 #include "error.h"
 #include "interface.h"
 #include "log.h"
 #include "path.h"
+#include "service-task.h"
 
 #define MSU_SYSTEM_UPDATE_VAR "SystemUpdateID"
 #define MSU_CONTAINER_UPDATE_VAR "ContainerUpdateIDs"
@@ -4061,7 +4060,7 @@ static void prv_create_didls_item_browse_cb(GUPnPServiceProxy *proxy,
 on_error:
 
 	if (cb_data->error != NULL)
-		msu_chain_task_cancel(cb_data->ut.playlist.chain);
+		msu_task_processor_cancel_queue(cb_data->ut.playlist.queue_id);
 
 	if (parser)
 		g_object_unref(parser);
@@ -4073,20 +4072,20 @@ on_error:
 }
 
 static GUPnPServiceProxyAction *prv_create_didls_item_browse(
-						msu_chain_task_t *chain,
-						GUPnPServiceProxy *proxy,
-						gboolean *failed)
+					msu_service_task_t *task,
+					GUPnPServiceProxy *proxy,
+					gboolean *failed)
 {
 	prv_new_playlist_ct_t *priv_t;
 
-	priv_t = (prv_new_playlist_ct_t *)msu_chain_task_get_user_data(chain);
+	priv_t = (prv_new_playlist_ct_t *)msu_service_task_get_user_data(task);
 	*failed = FALSE;
 
 	MSU_LOG_DEBUG("Browse for ID: %s", priv_t->id);
 
 	return gupnp_service_proxy_begin_action(
 			proxy, "Browse",
-			msu_chain_task_begin_action_cb, chain,
+			msu_service_task_begin_action_cb, task,
 			"ObjectID", G_TYPE_STRING, priv_t->id,
 			"BrowseFlag", G_TYPE_STRING, "BrowseMetadata",
 			"Filter", G_TYPE_STRING, "upnp:artist,upnp:album,res",
@@ -4134,7 +4133,7 @@ static gboolean prv_create_chain_didls_items(msu_task_t *task,
 		priv_t->cb_data = cb_data;
 		priv_t->id = id;
 
-		msu_chain_task_add(a_playlist->chain,
+		msu_service_task_add(a_playlist->queue_id,
 				   prv_create_didls_item_browse,
 				   task->target.device,
 				   proxy,
@@ -4208,19 +4207,14 @@ static void prv_create_playlist_object(msu_task_create_playlist_t *t_playlist,
 	g_free(time_c);
 }
 
-static void prv_create_didls_chain_end(msu_chain_task_t *chain,
-				       GUPnPServiceProxy *proxy,
-				       gpointer data)
+static void prv_create_didls_chain_end(gboolean cancelled, gpointer data)
 {
 	prv_new_playlist_ct_t *priv_t = data;
 	msu_async_cb_data_t *cb_data = priv_t->cb_data;
 	msu_async_playlist_t *a_playlist;
 	msu_task_create_playlist_t *t_playlist;
-	gboolean cancelled;
 
 	MSU_LOG_DEBUG("Enter");
-
-	cancelled = msu_chain_task_is_canceled(chain);
 
 	if (cb_data->cancel_id) {
 		if (!g_cancellable_is_cancelled(cb_data->cancellable))
@@ -4238,7 +4232,7 @@ static void prv_create_didls_chain_end(msu_chain_task_t *chain,
 
 	MSU_LOG_DEBUG("Creating object");
 	cb_data->action = gupnp_service_proxy_begin_action(
-				proxy,
+				cb_data->proxy,
 				"CreateObject",
 				prv_playlist_upload_cb, cb_data,
 				"ContainerID", G_TYPE_STRING, priv_t->parent_id,
@@ -4259,7 +4253,9 @@ on_clear:
 		(void) g_idle_add(msu_async_complete_task, cb_data);
 	}
 
-	cb_data->ut.playlist.chain = NULL;
+	prv_didls_free(priv_t);
+
+	cb_data->ut.playlist.queue_id = NULL;
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -4268,21 +4264,11 @@ static void prv_create_chain_cancelled(GCancellable *cancellable,
 				       gpointer user_data)
 {
 	msu_async_cb_data_t *cb_data = user_data;
-	msu_chain_task_t *chain = cb_data->ut.playlist.chain;
+	const msu_task_queue_key_t *queue_id = cb_data->ut.playlist.queue_id;
 
 	MSU_LOG_DEBUG("Enter");
 
-	msu_chain_task_cancel(chain);
-}
-
-static gboolean prv_idle_chain_start(gpointer user_data)
-{
-	msu_chain_task_t *chain = (msu_chain_task_t *)user_data;
-
-	if (!msu_chain_task_is_canceled(chain))
-		msu_chain_task_start(chain);
-
-	return FALSE;
+	msu_task_processor_cancel_queue(queue_id);
 }
 
 void msu_device_playlist_upload(msu_client_t *client,
@@ -4293,7 +4279,7 @@ void msu_device_playlist_upload(msu_client_t *client,
 {
 	msu_device_context_t *context;
 	prv_new_playlist_ct_t *priv_t;
-	msu_chain_task_t *chain;
+	const msu_task_queue_key_t *queue_id;
 
 	MSU_LOG_DEBUG("Enter");
 	MSU_LOG_DEBUG("Uploading playlist to %s", parent_id);
@@ -4302,15 +4288,22 @@ void msu_device_playlist_upload(msu_client_t *client,
 	priv_t->cb_data = cb_data;
 	priv_t->parent_id = g_strdup(parent_id);
 
-	chain = msu_chain_task_new();
+	queue_id = msu_task_processor_add_queue(
+			msu_media_service_get_task_processor(),
+			msu_service_task_create_source(),
+			MSU_SINK,
+			MSU_TASK_QUEUE_FLAG_AUTO_REMOVE,
+			msu_service_task_process_cb,
+			msu_service_task_cancel_cb,
+			msu_service_task_delete_cb);
+	msu_task_queue_set_finally(queue_id, prv_create_didls_chain_end);
+	msu_task_queue_set_user_data(queue_id, priv_t);
+
 	context = msu_device_get_context(task->target.device, client);
 
 	cb_data->proxy = context->service_proxy;
-	cb_data->ut.playlist.chain = chain;
+	cb_data->ut.playlist.queue_id = queue_id;
 	cb_data->cancellable = cancellable;
-
-	msu_chain_task_set_end(chain, prv_create_didls_chain_end,
-			       cb_data->proxy, prv_didls_free, priv_t);
 
 	g_object_add_weak_pointer((G_OBJECT(context->service_proxy)),
 				  (gpointer *)&cb_data->proxy);
@@ -4320,8 +4313,7 @@ void msu_device_playlist_upload(msu_client_t *client,
 					cb_data->cancellable,
 					G_CALLBACK(prv_create_chain_cancelled),
 					cb_data, NULL);
-
-		g_idle_add(prv_idle_chain_start, chain);
+		msu_task_queue_start(queue_id);
 	} else {
 		(void) g_idle_add(msu_async_complete_task, cb_data);
 	}
