@@ -15,7 +15,6 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 sysconf_DATA = media-service-upnp.conf
 
 media_service_upnp_sources = 	src/async.c		 \
-				src/chain-task.c	 \
 				src/device.c		 \
 				src/error.c		 \
 				src/log.c		 \
@@ -31,7 +30,6 @@ media_service_upnp_sources = 	src/async.c		 \
 				src/upnp.c
 
 media_service_upnp_headers =	src/async.h		 \
-				src/chain-task.h	 \
 				src/client.h		 \
 				src/device.h		 \
 				src/error.h		 \
