@@ -451,7 +451,7 @@ static const gchar g_msu_server_introspection[] =
 
 static void prv_process_task(msu_task_atom_t *task, GCancellable **cancellable);
 
-msu_task_processor_t * msu_media_service_get_task_processor(void)
+msu_task_processor_t *msu_media_service_get_task_processor(void)
 {
 	return g_context.processor;
 }

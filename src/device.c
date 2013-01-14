@@ -4134,11 +4134,11 @@ static gboolean prv_create_chain_didls_items(msu_task_t *task,
 		priv_t->id = id;
 
 		msu_service_task_add(a_playlist->queue_id,
-				   prv_create_didls_item_browse,
-				   task->target.device,
-				   proxy,
-				   prv_create_didls_item_browse_cb,
-				   prv_didls_free, priv_t);
+				     prv_create_didls_item_browse,
+				     task->target.device,
+				     proxy,
+				     prv_create_didls_item_browse_cb,
+				     prv_didls_free, priv_t);
 	}
 
 	MSU_LOG_DEBUG_NL();

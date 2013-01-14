@@ -39,11 +39,11 @@ struct msu_service_task_t_ {
 
 const char *msu_service_task_create_source(void)
 {
-	static unsigned int cpt = 0;
+	static unsigned int cpt = 1;
 	static char source[20];
 
-	cpt++;
 	g_snprintf(source, 20, "source-%d", cpt);
+	cpt++;
 
 	return source;
 }
