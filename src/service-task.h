@@ -50,10 +50,9 @@ void msu_service_task_add(const msu_task_queue_key_t *queue_id,
 void msu_service_task_begin_action_cb(GUPnPServiceProxy *proxy,
 				      GUPnPServiceProxyAction *action,
 				      gpointer user_data);
-void msu_service_task_process_cb(msu_task_atom_t *atom,
-				 GCancellable **cancellable);
-void msu_service_task_cancel_cb(msu_task_atom_t *atom);
-void msu_service_task_delete_cb(msu_task_atom_t *atom);
+void msu_service_task_process_cb(msu_task_atom_t *atom, gpointer user_data);
+gboolean msu_service_task_cancel_cb(msu_task_atom_t *atom, gpointer user_data);
+void msu_service_task_delete_cb(msu_task_atom_t *atom, gpointer user_data);
 
 msu_device_t *msu_service_task_get_device(msu_service_task_t *task);
 gpointer *msu_service_task_get_user_data(msu_service_task_t *task);

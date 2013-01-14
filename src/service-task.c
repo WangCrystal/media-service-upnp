@@ -86,13 +86,11 @@ void msu_service_task_begin_action_cb(GUPnPServiceProxy *proxy,
 	msu_task_queue_task_completed(task->base.queue_id);
 }
 
-void msu_service_task_process_cb(msu_task_atom_t *atom,
-				 GCancellable **cancellable)
+void msu_service_task_process_cb(msu_task_atom_t *atom, gpointer user_data)
 {
 	gboolean failed = FALSE;
 	msu_service_task_t *task = (msu_service_task_t *)atom;
 
-	*cancellable = NULL;
 	task->p_action = task->t_action(task, task->proxy, &failed);
 
 	if (failed)
@@ -101,7 +99,7 @@ void msu_service_task_process_cb(msu_task_atom_t *atom,
 		msu_task_queue_task_completed(task->base.queue_id);
 }
 
-void msu_service_task_cancel_cb(msu_task_atom_t *atom)
+gboolean msu_service_task_cancel_cb(msu_task_atom_t *atom, gpointer user_data)
 {
 	msu_service_task_t *task = (msu_service_task_t *)atom;
 
@@ -112,9 +110,11 @@ void msu_service_task_cancel_cb(msu_task_atom_t *atom)
 							task->p_action);
 		task->p_action = NULL;
 	}
+
+	return FALSE;
 }
 
-void msu_service_task_delete_cb(msu_task_atom_t *atom)
+void msu_service_task_delete_cb(msu_task_atom_t *atom, gpointer user_data)
 {
 	msu_service_task_t *task = (msu_service_task_t *)atom;
 

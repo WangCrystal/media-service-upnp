@@ -145,7 +145,7 @@ struct msu_task_target_info_t_ {
 
 typedef struct msu_task_t_ msu_task_t;
 struct msu_task_t_ {
-	msu_task_atom_t base; /* pseudo inheritance - MUST be first field */
+	msu_task_atom_t atom; /* pseudo inheritance - MUST be first field */
 	msu_task_type_t type;
 	msu_task_target_info_t target;
 	const gchar *result_format;
@@ -153,6 +153,7 @@ struct msu_task_t_ {
 	GDBusMethodInvocation *invocation;
 	gboolean synchronous;
 	gboolean multiple_retvals;
+	GCancellable *cancellable;
 	union {
 		msu_task_get_children_t get_children;
 		msu_task_get_props_t get_props;
@@ -235,7 +236,7 @@ msu_task_t *msu_task_update_new(GDBusMethodInvocation *invocation,
 				const gchar *path, GVariant *parameters,
 				GError **error);
 
-void msu_task_cancel(msu_task_t *task);
+gboolean msu_task_cancel(msu_task_t *task);
 void msu_task_complete(msu_task_t *task);
 void msu_task_fail(msu_task_t *task, GError *error);
 void msu_task_delete(msu_task_t *task);

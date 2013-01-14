@@ -115,6 +115,9 @@ static void prv_msu_task_delete(msu_task_t *task)
 	if (task->result)
 		g_variant_unref(task->result);
 
+	if (task->cancellable)
+		g_object_unref(task->cancellable);
+
 	g_free(task);
 }
 
@@ -559,8 +562,9 @@ finished:
 	return;
 }
 
-void msu_task_cancel(msu_task_t *task)
+gboolean msu_task_cancel(msu_task_t *task)
 {
+	gboolean defer_completion = FALSE;
 	GError *error;
 
 	if (!task)
@@ -574,9 +578,14 @@ void msu_task_cancel(msu_task_t *task)
 		g_error_free(error);
 	}
 
+	if (task->cancellable) {
+		g_cancellable_cancel(task->cancellable);
+		defer_completion = TRUE;
+	}
+
 finished:
 
-	return;
+	return defer_completion;
 }
 
 void msu_task_delete(msu_task_t *task)
