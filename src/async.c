@@ -90,14 +90,8 @@ void msu_async_task_cancelled_cb(GCancellable *cancellable, gpointer user_data)
 	(void) g_idle_add(msu_async_task_complete, cb_data);
 }
 
-gboolean msu_async_task_cancel(msu_async_task_t *cb_data)
+void msu_async_task_cancel(msu_async_task_t *cb_data)
 {
-	gboolean cancelled = FALSE;
-
-	if (cb_data->cancellable) {
+	if (cb_data->cancellable)
 		g_cancellable_cancel(cb_data->cancellable);
-		cancelled = TRUE;
-	}
-
-	return cancelled;
 }

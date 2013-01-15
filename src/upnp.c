@@ -499,7 +499,6 @@ GHashTable *msu_upnp_get_server_udn_map(msu_upnp_t *upnp)
 
 void msu_upnp_get_children(msu_upnp_t *upnp, msu_client_t *client,
 			   msu_task_t *task,
-			   GCancellable *cancellable,
 			   msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -538,8 +537,7 @@ void msu_upnp_get_children(msu_upnp_t *upnp, msu_client_t *client,
 
 	cb_task_data->protocol_info = client->protocol_info;
 
-	msu_device_get_children(client, task, cb_data,
-				upnp_filter, sort_by, cancellable);
+	msu_device_get_children(client, task, upnp_filter, sort_by);
 
 on_error:
 
@@ -554,7 +552,6 @@ on_error:
 
 void msu_upnp_get_all_props(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb)
 {
 	gboolean root_object;
@@ -575,15 +572,13 @@ void msu_upnp_get_all_props(msu_upnp_t *upnp, msu_client_t *client,
 
 	cb_task_data->protocol_info = client->protocol_info;
 
-	msu_device_get_all_props(client, task, cb_data, root_object,
-				 cancellable);
+	msu_device_get_all_props(client, task, root_object);
 
 	MSU_LOG_DEBUG("Exit with SUCCESS");
 }
 
 void msu_upnp_get_prop(msu_upnp_t *upnp, msu_client_t *client,
 		       msu_task_t *task,
-		       GCancellable *cancellable,
 		       msu_upnp_task_complete_t cb)
 {
 	gboolean root_object;
@@ -609,15 +604,13 @@ void msu_upnp_get_prop(msu_upnp_t *upnp, msu_client_t *client,
 	cb_task_data->protocol_info = client->protocol_info;
 	prop_map = g_hash_table_lookup(upnp->filter_map, task_data->prop_name);
 
-	msu_device_get_prop(client, task, cb_data, prop_map,
-			    root_object, cancellable);
+	msu_device_get_prop(client, task, prop_map, root_object);
 
 	MSU_LOG_DEBUG("Exit with SUCCESS");
 }
 
 void msu_upnp_search(msu_upnp_t *upnp, msu_client_t *client,
 		     msu_task_t *task,
-		     GCancellable *cancellable,
 		     msu_upnp_task_complete_t cb)
 {
 	gchar *upnp_filter = NULL;
@@ -670,8 +663,7 @@ void msu_upnp_search(msu_upnp_t *upnp, msu_client_t *client,
 
 	cb_task_data->protocol_info = client->protocol_info;
 
-	msu_device_search(client, task, cb_data, upnp_filter,
-			  upnp_query, sort_by, cancellable);
+	msu_device_search(client, task, upnp_filter, upnp_query, sort_by);
 on_error:
 
 	if (!cb_data->action)
@@ -686,7 +678,6 @@ on_error:
 
 void msu_upnp_get_resource(msu_upnp_t *upnp, msu_client_t *client,
 			   msu_task_t *task,
-			   GCancellable *cancellable,
 			   msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -710,8 +701,7 @@ void msu_upnp_get_resource(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Filter Mask 0x%"G_GUINT64_FORMAT"x",
 		      cb_task_data->filter_mask);
 
-	msu_device_get_resource(client, task, cb_data, upnp_filter,
-				cancellable);
+	msu_device_get_resource(client, task, upnp_filter);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -789,7 +779,6 @@ on_error:
 
 void msu_upnp_upload_to_any(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -818,8 +807,7 @@ void msu_upnp_upload_to_any(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("MIME Type %s", cb_task_data->mime_type);
 	MSU_LOG_DEBUG("Object class %s", cb_task_data->object_class);
 
-	msu_device_upload(client, task, "DLNA.ORG_AnyContainer",
-			  cb_data, cancellable);
+	msu_device_upload(client, task, "DLNA.ORG_AnyContainer");
 
 on_error:
 
@@ -830,7 +818,6 @@ on_error:
 }
 
 void msu_upnp_upload(msu_upnp_t *upnp, msu_client_t *client, msu_task_t *task,
-		     GCancellable *cancellable,
 		     msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -847,8 +834,7 @@ void msu_upnp_upload(msu_upnp_t *upnp, msu_client_t *client, msu_task_t *task,
 	MSU_LOG_DEBUG("MIME Type %s", cb_task_data->mime_type);
 	MSU_LOG_DEBUG("Object class %s", cb_task_data->object_class);
 
-	msu_device_upload(client, task, task->target.id, cb_data,
-			  cancellable);
+	msu_device_upload(client, task, task->target.id);
 
 on_error:
 
@@ -953,7 +939,6 @@ on_error:
 
 void msu_upnp_delete_object(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -965,14 +950,13 @@ void msu_upnp_delete_object(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Root Path %s Id %s", task->target.root_path,
 		      task->target.id);
 
-	msu_device_delete_object(client, task, cb_data, cancellable);
+	msu_device_delete_object(client, task);
 
 	MSU_LOG_DEBUG("Exit");
 }
 
 void msu_upnp_create_container(msu_upnp_t *upnp, msu_client_t *client,
 			       msu_task_t *task,
-			       GCancellable *cancellable,
 			       msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -984,15 +968,13 @@ void msu_upnp_create_container(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Root Path %s Id %s", task->target.root_path,
 		      task->target.id);
 
-	msu_device_create_container(client, task, task->target.id,
-				    cb_data, cancellable);
+	msu_device_create_container(client, task, task->target.id);
 
 	MSU_LOG_DEBUG("Exit");
 }
 
 void msu_upnp_create_container_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				      msu_task_t *task,
-				      GCancellable *cancellable,
 				      msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -1013,9 +995,7 @@ void msu_upnp_create_container_in_any(msu_upnp_t *upnp, msu_client_t *client,
 		goto on_error;
 	}
 
-	msu_device_create_container(client, task,
-				    "DLNA.ORG_AnyContainer",
-				    cb_data, cancellable);
+	msu_device_create_container(client, task, "DLNA.ORG_AnyContainer");
 
 on_error:
 
@@ -1027,7 +1007,6 @@ on_error:
 
 void msu_upnp_update_object(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -1072,8 +1051,7 @@ void msu_upnp_update_object(msu_upnp_t *upnp, msu_client_t *client,
 		goto on_error;
 	}
 
-	msu_device_update_object(client, task, cb_data, upnp_filter,
-				 cancellable);
+	msu_device_update_object(client, task, upnp_filter);
 
 on_error:
 
@@ -1087,7 +1065,6 @@ on_error:
 
 void msu_upnp_create_playlist(msu_upnp_t *upnp, msu_client_t *client,
 			      msu_task_t *task,
-			      GCancellable *cancellable,
 			      msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -1114,8 +1091,7 @@ void msu_upnp_create_playlist(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Desc = %s", task_data->desc);
 	MSU_LOG_DEBUG_NL();
 
-	msu_device_playlist_upload(client, task, task->target.id, cb_data,
-				   cancellable);
+	msu_device_playlist_upload(client, task, task->target.id);
 
 	MSU_LOG_DEBUG("Exit");
 
@@ -1136,7 +1112,6 @@ on_param_error:
 
 void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				     msu_task_t *task,
-				     GCancellable *cancellable,
 				     msu_upnp_task_complete_t cb)
 {
 	msu_async_task_t *cb_data = (msu_async_task_t *)task;
@@ -1172,8 +1147,7 @@ void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Desc = %s", task_data->desc);
 	MSU_LOG_DEBUG_NL();
 
-	msu_device_playlist_upload(client, task, "DLNA.ORG_AnyContainer",
-				   cb_data, cancellable);
+	msu_device_playlist_upload(client, task, "DLNA.ORG_AnyContainer");
 
 	MSU_LOG_DEBUG("Exit");
 

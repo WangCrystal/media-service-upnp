@@ -235,7 +235,7 @@ msu_task_t *msu_task_update_new(GDBusMethodInvocation *invocation,
 				const gchar *path, GVariant *parameters,
 				GError **error);
 
-gboolean msu_task_cancel(msu_task_t *task);
+void msu_task_cancel(msu_task_t *task);
 void msu_task_complete(msu_task_t *task);
 void msu_task_fail(msu_task_t *task, GError *error);
 void msu_task_delete(msu_task_t *task);

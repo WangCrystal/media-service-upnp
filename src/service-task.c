@@ -99,19 +99,18 @@ void msu_service_task_process_cb(msu_task_atom_t *atom, gpointer user_data)
 		msu_task_queue_task_completed(task->base.queue_id);
 }
 
-gboolean msu_service_task_cancel_cb(msu_task_atom_t *atom, gpointer user_data)
+void msu_service_task_cancel_cb(msu_task_atom_t *atom, gpointer user_data)
 {
 	msu_service_task_t *task = (msu_service_task_t *)atom;
 
 	if (task->p_action) {
 		if (task->proxy)
-			gupnp_service_proxy_cancel_action(
-							task->proxy,
-							task->p_action);
+			gupnp_service_proxy_cancel_action(task->proxy,
+							  task->p_action);
 		task->p_action = NULL;
-	}
 
-	return FALSE;
+		msu_task_queue_task_completed(task->base.queue_id);
+	}
 }
 
 void msu_service_task_delete_cb(msu_task_atom_t *atom, gpointer user_data)

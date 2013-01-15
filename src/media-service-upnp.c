@@ -545,9 +545,9 @@ static void prv_async_task_complete(msu_task_t *task, GError *error)
 
 static void prv_process_async_task(msu_task_t *task)
 {
+	msu_async_task_t *async_task = (msu_async_task_t *)task;
 	const gchar *client_name;
 	msu_client_t *client;
-	msu_async_task_t *async_task = (msu_async_task_t *)task;
 
 	MSU_LOG_DEBUG("Enter");
 
@@ -559,67 +559,54 @@ static void prv_process_async_task(msu_task_t *task)
 	switch (task->type) {
 	case MSU_TASK_GET_CHILDREN:
 		msu_upnp_get_children(g_context.upnp, client, task,
-				      async_task->cancellable,
 				      prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_PROP:
 		msu_upnp_get_prop(g_context.upnp, client, task,
-				  async_task->cancellable,
 				  prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_ALL_PROPS:
 		msu_upnp_get_all_props(g_context.upnp, client, task,
-				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_SEARCH:
 		msu_upnp_search(g_context.upnp, client, task,
-				async_task->cancellable,
 				prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_RESOURCE:
 		msu_upnp_get_resource(g_context.upnp, client, task,
-				      async_task->cancellable,
 				      prv_async_task_complete);
 		break;
 	case MSU_TASK_UPLOAD_TO_ANY:
 		msu_upnp_upload_to_any(g_context.upnp, client, task,
-				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_UPLOAD:
 		msu_upnp_upload(g_context.upnp, client, task,
-				async_task->cancellable,
 				prv_async_task_complete);
 		break;
 	case MSU_TASK_DELETE_OBJECT:
 		msu_upnp_delete_object(g_context.upnp, client, task,
-				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_CONTAINER:
 		msu_upnp_create_container(g_context.upnp, client, task,
-					  async_task->cancellable,
 					  prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_CONTAINER_IN_ANY:
 		msu_upnp_create_container_in_any(g_context.upnp, client, task,
-						 async_task->cancellable,
 						 prv_async_task_complete);
 		break;
 	case MSU_TASK_UPDATE_OBJECT:
 		msu_upnp_update_object(g_context.upnp, client, task,
-				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_PLAYLIST:
 		msu_upnp_create_playlist(g_context.upnp, client, task,
-					 async_task->cancellable,
 					 prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_PLAYLIST_IN_ANY:
 		msu_upnp_create_playlist_in_any(g_context.upnp, client, task,
-						async_task->cancellable,
 						prv_async_task_complete);
 		break;
 	default:
@@ -639,9 +626,9 @@ static void prv_process_task(msu_task_atom_t *task, gpointer user_data)
 		prv_process_async_task(client_task);
 }
 
-static gboolean prv_cancel_task(msu_task_atom_t *task, gpointer user_data)
+static void prv_cancel_task(msu_task_atom_t *task, gpointer user_data)
 {
-	return msu_task_cancel((msu_task_t *)task);
+	msu_task_cancel((msu_task_t *)task);
 }
 
 static void prv_delete_task(msu_task_atom_t *task, gpointer user_data)

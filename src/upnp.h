@@ -24,7 +24,7 @@
 #define MSU_UPNP_H__
 
 #include "client.h"
-#include "task.h"
+#include "async.h"
 
 enum msu_interface_type_ {
 	MSU_INTERFACE_INFO_PROPERTIES,
@@ -54,58 +54,45 @@ GVariant *msu_upnp_get_server_ids(msu_upnp_t *upnp);
 GHashTable *msu_upnp_get_server_udn_map(msu_upnp_t *upnp);
 void msu_upnp_get_children(msu_upnp_t *upnp, msu_client_t *client,
 			   msu_task_t *task,
-			   GCancellable *cancellable,
 			   msu_upnp_task_complete_t cb);
 void msu_upnp_get_all_props(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb);
 void msu_upnp_get_prop(msu_upnp_t *upnp, msu_client_t *client,
 		       msu_task_t *task,
-		       GCancellable *cancellable,
 		       msu_upnp_task_complete_t cb);
 void msu_upnp_search(msu_upnp_t *upnp, msu_client_t *client,
 		     msu_task_t *task,
-		     GCancellable *cancellable,
 		     msu_upnp_task_complete_t cb);
 void msu_upnp_get_resource(msu_upnp_t *upnp, msu_client_t *client,
 			   msu_task_t *task,
-			   GCancellable *cancellable,
 			   msu_upnp_task_complete_t cb);
 void msu_upnp_upload_to_any(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb);
 void msu_upnp_upload(msu_upnp_t *upnp, msu_client_t *client,
 		     msu_task_t *task,
-		     GCancellable *cancellable,
 		     msu_upnp_task_complete_t cb);
 void msu_upnp_get_upload_status(msu_upnp_t *upnp, msu_task_t *task);
 void msu_upnp_get_upload_ids(msu_upnp_t *upnp, msu_task_t *task);
 void msu_upnp_cancel_upload(msu_upnp_t *upnp, msu_task_t *task);
 void msu_upnp_delete_object(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb);
 void msu_upnp_create_container(msu_upnp_t *upnp, msu_client_t *client,
 			       msu_task_t *task,
-			       GCancellable *cancellable,
 			       msu_upnp_task_complete_t cb);
 void msu_upnp_create_container_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				      msu_task_t *task,
-				      GCancellable *cancellable,
 				      msu_upnp_task_complete_t cb);
 void msu_upnp_update_object(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_task_t *task,
-			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb);
 void msu_upnp_create_playlist(msu_upnp_t *upnp, msu_client_t *client,
 			      msu_task_t *task,
-			      GCancellable *cancellable,
 			      msu_upnp_task_complete_t cb);
 void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				     msu_task_t *task,
-				     GCancellable *cancellable,
 				     msu_upnp_task_complete_t cb);
 
 gboolean msu_upnp_device_context_exist(msu_device_t *device,

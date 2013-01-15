@@ -39,8 +39,8 @@ typedef struct msu_task_processor_t_ msu_task_processor_t;
 
 typedef void (*msu_task_process_cb_t)(msu_task_atom_t *task,
 				      gpointer user_data);
-typedef gboolean (*msu_task_cancel_cb_t)(msu_task_atom_t *task,
-					 gpointer user_data);
+typedef void (*msu_task_cancel_cb_t)(msu_task_atom_t *task,
+				     gpointer user_data);
 typedef void (*msu_task_delete_cb_t)(msu_task_atom_t *task,
 				     gpointer user_data);
 typedef void (*msu_task_finally_cb_t)(gboolean cancelled, gpointer user_data);

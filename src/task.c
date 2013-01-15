@@ -569,9 +569,8 @@ finished:
 	return;
 }
 
-gboolean msu_task_cancel(msu_task_t *task)
+void msu_task_cancel(msu_task_t *task)
 {
-	gboolean defer_completion = FALSE;
 	GError *error;
 
 	if (!task)
@@ -586,12 +585,11 @@ gboolean msu_task_cancel(msu_task_t *task)
 	}
 
 	if (!task->synchronous)
-		defer_completion = msu_async_task_cancel(
-						(msu_async_task_t *)task);
+		msu_async_task_cancel((msu_async_task_t *)task);
 
 finished:
 
-	return defer_completion;
+	return;
 }
 
 void msu_task_delete(msu_task_t *task)

@@ -104,6 +104,6 @@ struct msu_async_task_t_ {
 void msu_async_task_delete(msu_async_task_t *cb_data);
 gboolean msu_async_task_complete(gpointer user_data);
 void msu_async_task_cancelled_cb(GCancellable *cancellable, gpointer user_data);
-gboolean msu_async_task_cancel(msu_async_task_t *cb_data);
+void msu_async_task_cancel(msu_async_task_t *cb_data);
 
 #endif
