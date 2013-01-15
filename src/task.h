@@ -153,7 +153,6 @@ struct msu_task_t_ {
 	GDBusMethodInvocation *invocation;
 	gboolean synchronous;
 	gboolean multiple_retvals;
-	GCancellable *cancellable;
 	union {
 		msu_task_get_children_t get_children;
 		msu_task_get_props_t get_props;

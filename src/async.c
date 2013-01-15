@@ -24,22 +24,10 @@
 #include "error.h"
 #include "log.h"
 
-msu_async_cb_data_t *msu_async_cb_data_new(msu_task_t *task,
-					   msu_upnp_task_complete_t cb)
-{
-	msu_async_cb_data_t *cb_data = g_new0(msu_async_cb_data_t, 1);
-
-	cb_data->type = task->type;
-	cb_data->task = task;
-	cb_data->cb = cb;
-
-	return cb_data;
-}
-
-void msu_async_cb_data_delete(msu_async_cb_data_t *cb_data)
+void msu_async_task_delete(msu_async_task_t *cb_data)
 {
 	if (cb_data) {
-		switch (cb_data->type) {
+		switch (cb_data->task.type) {
 		case MSU_TASK_GET_CHILDREN:
 		case MSU_TASK_SEARCH:
 			if (cb_data->ut.bas.vbs)
@@ -66,43 +54,50 @@ void msu_async_cb_data_delete(msu_async_cb_data_t *cb_data)
 		default:
 			break;
 		}
-
-		g_free(cb_data);
 	}
+
+	if (cb_data->cancellable)
+		g_object_unref(cb_data->cancellable);
 }
 
-gboolean msu_async_complete_task(gpointer user_data)
+gboolean msu_async_task_complete(gpointer user_data)
 {
-	msu_async_cb_data_t *cb_data = user_data;
+	msu_async_task_t *cb_data = user_data;
 
 	MSU_LOG_DEBUG("Enter. Error %p", (void *)cb_data->error);
 	MSU_LOG_DEBUG_NL();
-
-	cb_data->cb(cb_data->task, cb_data->result, cb_data->error);
 
 	if (cb_data->proxy != NULL)
 		g_object_remove_weak_pointer((G_OBJECT(cb_data->proxy)),
 					     (gpointer *)&cb_data->proxy);
 
-	msu_async_cb_data_delete(cb_data);
+	cb_data->cb(&cb_data->task, cb_data->error);
 
 	return FALSE;
 }
 
-void msu_async_task_cancelled(GCancellable *cancellable, gpointer user_data)
+void msu_async_task_cancelled_cb(GCancellable *cancellable, gpointer user_data)
 {
-	msu_async_cb_data_t *cb_data = user_data;
+	msu_async_task_t *cb_data = user_data;
 
-	if (cb_data->proxy != NULL) {
+	if (cb_data->proxy != NULL)
 		gupnp_service_proxy_cancel_action(cb_data->proxy,
 						  cb_data->action);
-
-		g_object_remove_weak_pointer((G_OBJECT(cb_data->proxy)),
-					     (gpointer *)&cb_data->proxy);
-	}
 
 	if (!cb_data->error)
 		cb_data->error = g_error_new(MSU_ERROR, MSU_ERROR_CANCELLED,
 					     "Operation cancelled.");
-	(void) g_idle_add(msu_async_complete_task, cb_data);
+	(void) g_idle_add(msu_async_task_complete, cb_data);
+}
+
+gboolean msu_async_task_cancel(msu_async_task_t *cb_data)
+{
+	gboolean cancelled = FALSE;
+
+	if (cb_data->cancellable) {
+		g_cancellable_cancel(cb_data->cancellable);
+		cancelled = TRUE;
+	}
+
+	return cancelled;
 }

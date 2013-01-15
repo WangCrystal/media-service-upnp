@@ -502,7 +502,7 @@ void msu_upnp_get_children(msu_upnp_t *upnp, msu_client_t *client,
 			   GCancellable *cancellable,
 			   msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_bas_t *cb_task_data;
 	gchar *upnp_filter = NULL;
 	gchar *sort_by = NULL;
@@ -513,7 +513,7 @@ void msu_upnp_get_children(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Start: %u", task->ut.get_children.start);
 	MSU_LOG_DEBUG("Count: %u", task->ut.get_children.count);
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.bas;
 
 	cb_task_data->filter_mask =
@@ -544,7 +544,7 @@ void msu_upnp_get_children(msu_upnp_t *upnp, msu_client_t *client,
 on_error:
 
 	if (!cb_data->action)
-		(void) g_idle_add(msu_async_complete_task, cb_data);
+		(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	g_free(sort_by);
 	g_free(upnp_filter);
@@ -558,7 +558,7 @@ void msu_upnp_get_all_props(msu_upnp_t *upnp, msu_client_t *client,
 			    msu_upnp_task_complete_t cb)
 {
 	gboolean root_object;
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_get_all_t *cb_task_data;
 
 	MSU_LOG_DEBUG("Enter");
@@ -566,7 +566,7 @@ void msu_upnp_get_all_props(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Path: %s", task->target.path);
 	MSU_LOG_DEBUG("Interface %s", task->ut.get_prop.interface_name);
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.get_all;
 
 	root_object = task->target.id[0] == '0' && task->target.id[1] == 0;
@@ -587,7 +587,7 @@ void msu_upnp_get_prop(msu_upnp_t *upnp, msu_client_t *client,
 		       msu_upnp_task_complete_t cb)
 {
 	gboolean root_object;
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_get_prop_t *cb_task_data;
 	msu_prop_map_t *prop_map;
 	msu_task_get_prop_t *task_data;
@@ -599,7 +599,7 @@ void msu_upnp_get_prop(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Prop.%s", task->ut.get_prop.prop_name);
 
 	task_data = &task->ut.get_prop;
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.get_prop;
 
 	root_object = task->target.id[0] == '0' && task->target.id[1] == 0;
@@ -623,7 +623,7 @@ void msu_upnp_search(msu_upnp_t *upnp, msu_client_t *client,
 	gchar *upnp_filter = NULL;
 	gchar *upnp_query = NULL;
 	gchar *sort_by = NULL;
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_bas_t *cb_task_data;
 
 	MSU_LOG_DEBUG("Enter");
@@ -633,7 +633,7 @@ void msu_upnp_search(msu_upnp_t *upnp, msu_client_t *client,
 	MSU_LOG_DEBUG("Start: %u", task->ut.search.start);
 	MSU_LOG_DEBUG("Count: %u", task->ut.search.count);
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.bas;
 
 	cb_task_data->filter_mask =
@@ -675,7 +675,7 @@ void msu_upnp_search(msu_upnp_t *upnp, msu_client_t *client,
 on_error:
 
 	if (!cb_data->action)
-		(void) g_idle_add(msu_async_complete_task, cb_data);
+		(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	g_free(sort_by);
 	g_free(upnp_query);
@@ -689,7 +689,7 @@ void msu_upnp_get_resource(msu_upnp_t *upnp, msu_client_t *client,
 			   GCancellable *cancellable,
 			   msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_get_all_t *cb_task_data;
 	gchar *upnp_filter = NULL;
 
@@ -697,7 +697,7 @@ void msu_upnp_get_resource(msu_upnp_t *upnp, msu_client_t *client,
 
 	MSU_LOG_DEBUG("Protocol Info: %s ", task->ut.resource.protocol_info);
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.get_all;
 
 	MSU_LOG_DEBUG("Root Path %s Id %s", task->target.root_path,
@@ -792,12 +792,12 @@ void msu_upnp_upload_to_any(msu_upnp_t *upnp, msu_client_t *client,
 			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_upload_t *cb_task_data;
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.upload;
 
 	MSU_LOG_DEBUG("Root Path %s Id %s", task->target.root_path,
@@ -824,7 +824,7 @@ void msu_upnp_upload_to_any(msu_upnp_t *upnp, msu_client_t *client,
 on_error:
 
 	if (!cb_data->action)
-		(void) g_idle_add(msu_async_complete_task, cb_data);
+		(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -833,12 +833,12 @@ void msu_upnp_upload(msu_upnp_t *upnp, msu_client_t *client, msu_task_t *task,
 		     GCancellable *cancellable,
 		     msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_upload_t *cb_task_data;
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.upload;
 
 	if (!prv_compute_mime_and_class(task, cb_task_data, &cb_data->error))
@@ -853,7 +853,7 @@ void msu_upnp_upload(msu_upnp_t *upnp, msu_client_t *client, msu_task_t *task,
 on_error:
 
 	if (!cb_data->action)
-		(void) g_idle_add(msu_async_complete_task, cb_data);
+		(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -956,11 +956,11 @@ void msu_upnp_delete_object(msu_upnp_t *upnp, msu_client_t *client,
 			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 
 	MSU_LOG_DEBUG("Root Path %s Id %s", task->target.root_path,
 		      task->target.id);
@@ -975,11 +975,11 @@ void msu_upnp_create_container(msu_upnp_t *upnp, msu_client_t *client,
 			       GCancellable *cancellable,
 			       msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 
 	MSU_LOG_DEBUG("Root Path %s Id %s", task->target.root_path,
 		      task->target.id);
@@ -995,11 +995,11 @@ void msu_upnp_create_container_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				      GCancellable *cancellable,
 				      msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 
 	MSU_LOG_DEBUG("Root Path %s Id %s", task->target.root_path,
 		      task->target.id);
@@ -1020,7 +1020,7 @@ void msu_upnp_create_container_in_any(msu_upnp_t *upnp, msu_client_t *client,
 on_error:
 
 	if (!cb_data->action)
-		(void) g_idle_add(msu_async_complete_task, cb_data);
+		(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -1030,7 +1030,7 @@ void msu_upnp_update_object(msu_upnp_t *upnp, msu_client_t *client,
 			    GCancellable *cancellable,
 			    msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_async_update_t *cb_task_data;
 	msu_upnp_prop_mask mask;
 	gchar *upnp_filter = NULL;
@@ -1038,7 +1038,7 @@ void msu_upnp_update_object(msu_upnp_t *upnp, msu_client_t *client,
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	cb_task_data = &cb_data->ut.update;
 	task_data = &task->ut.update;
 
@@ -1080,7 +1080,7 @@ on_error:
 	g_free(upnp_filter);
 
 	if (!cb_data->action)
-		(void) g_idle_add(msu_async_complete_task, cb_data);
+		(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	MSU_LOG_DEBUG("Exit");
 }
@@ -1090,12 +1090,12 @@ void msu_upnp_create_playlist(msu_upnp_t *upnp, msu_client_t *client,
 			      GCancellable *cancellable,
 			      msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_task_create_playlist_t *task_data;
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	task_data = &task->ut.playlist;
 
 	MSU_LOG_DEBUG("Root Path: %s - Id: %s", task->target.root_path,
@@ -1129,7 +1129,7 @@ on_param_error:
 				     MSU_ERROR_OPERATION_FAILED,
 				     "Invalid Parameter");
 
-	(void) g_idle_add(msu_async_complete_task, cb_data);
+	(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	MSU_LOG_DEBUG("Exit failure");
 }
@@ -1139,12 +1139,12 @@ void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				     GCancellable *cancellable,
 				     msu_upnp_task_complete_t cb)
 {
-	msu_async_cb_data_t *cb_data;
+	msu_async_task_t *cb_data = (msu_async_task_t *)task;
 	msu_task_create_playlist_t *task_data;
 
 	MSU_LOG_DEBUG("Enter");
 
-	cb_data = msu_async_cb_data_new(task, cb);
+	cb_data->cb = cb;
 	task_data = &task->ut.playlist;
 
 	MSU_LOG_DEBUG("Root Path: %s - Id: %s", task->target.root_path,
@@ -1188,7 +1188,7 @@ on_param_error:
 				     "Invalid Parameter");
 on_error:
 
-	(void) g_idle_add(msu_async_complete_task, cb_data);
+	(void) g_idle_add(msu_async_task_complete, cb_data);
 
 	MSU_LOG_DEBUG("Exit failure");
 }

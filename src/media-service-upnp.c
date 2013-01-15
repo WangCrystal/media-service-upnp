@@ -36,7 +36,7 @@
 #include "log.h"
 #include "path.h"
 #include "settings.h"
-#include "task.h"
+#include "async.h"
 #include "upnp.h"
 
 typedef struct msu_context_t_ msu_context_t;
@@ -527,8 +527,7 @@ static void prv_process_sync_task(msu_task_t *task)
 	}
 }
 
-static void prv_async_task_complete(msu_task_t *task, GVariant *result,
-				    GError *error)
+static void prv_async_task_complete(msu_task_t *task, GError *error)
 {
 	MSU_LOG_DEBUG("Enter");
 
@@ -536,7 +535,6 @@ static void prv_async_task_complete(msu_task_t *task, GVariant *result,
 		msu_task_fail(task, error);
 		g_error_free(error);
 	} else {
-		task->result = result;
 		msu_task_complete(task);
 	}
 
@@ -549,10 +547,11 @@ static void prv_process_async_task(msu_task_t *task)
 {
 	const gchar *client_name;
 	msu_client_t *client;
+	msu_async_task_t *async_task = (msu_async_task_t *)task;
 
 	MSU_LOG_DEBUG("Enter");
 
-	task->cancellable = g_cancellable_new();
+	async_task->cancellable = g_cancellable_new();
 	client_name =
 		g_dbus_method_invocation_get_sender(task->invocation);
 	client = g_hash_table_lookup(g_context.watchers, client_name);
@@ -560,64 +559,67 @@ static void prv_process_async_task(msu_task_t *task)
 	switch (task->type) {
 	case MSU_TASK_GET_CHILDREN:
 		msu_upnp_get_children(g_context.upnp, client, task,
-				      task->cancellable,
+				      async_task->cancellable,
 				      prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_PROP:
 		msu_upnp_get_prop(g_context.upnp, client, task,
-				task->cancellable, prv_async_task_complete);
+				  async_task->cancellable,
+				  prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_ALL_PROPS:
 		msu_upnp_get_all_props(g_context.upnp, client, task,
-				       task->cancellable,
+				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_SEARCH:
 		msu_upnp_search(g_context.upnp, client, task,
-				task->cancellable, prv_async_task_complete);
+				async_task->cancellable,
+				prv_async_task_complete);
 		break;
 	case MSU_TASK_GET_RESOURCE:
 		msu_upnp_get_resource(g_context.upnp, client, task,
-				      task->cancellable,
+				      async_task->cancellable,
 				      prv_async_task_complete);
 		break;
 	case MSU_TASK_UPLOAD_TO_ANY:
 		msu_upnp_upload_to_any(g_context.upnp, client, task,
-				       task->cancellable,
+				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_UPLOAD:
 		msu_upnp_upload(g_context.upnp, client, task,
-				task->cancellable, prv_async_task_complete);
+				async_task->cancellable,
+				prv_async_task_complete);
 		break;
 	case MSU_TASK_DELETE_OBJECT:
 		msu_upnp_delete_object(g_context.upnp, client, task,
-				       task->cancellable,
+				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_CONTAINER:
 		msu_upnp_create_container(g_context.upnp, client, task,
-					  task->cancellable,
+					  async_task->cancellable,
 					  prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_CONTAINER_IN_ANY:
 		msu_upnp_create_container_in_any(g_context.upnp, client, task,
-						 task->cancellable,
+						 async_task->cancellable,
 						 prv_async_task_complete);
 		break;
 	case MSU_TASK_UPDATE_OBJECT:
 		msu_upnp_update_object(g_context.upnp, client, task,
-				       task->cancellable,
+				       async_task->cancellable,
 				       prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_PLAYLIST:
 		msu_upnp_create_playlist(g_context.upnp, client, task,
-					 task->cancellable,
+					 async_task->cancellable,
 					 prv_async_task_complete);
 		break;
 	case MSU_TASK_CREATE_PLAYLIST_IN_ANY:
 		msu_upnp_create_playlist_in_any(g_context.upnp, client, task,
-						task->cancellable,
+						async_task->cancellable,
 						prv_async_task_complete);
 		break;
 	default:

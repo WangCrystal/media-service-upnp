@@ -31,10 +31,10 @@
 #include "task.h"
 #include "upnp.h"
 
-typedef struct msu_async_cb_data_t_ msu_async_cb_data_t;
+typedef struct msu_async_task_t_ msu_async_task_t;
 typedef guint64 msu_upnp_prop_mask;
 
-typedef void (*msu_async_cb_t)(msu_async_cb_data_t *cb_data);
+typedef void (*msu_async_cb_t)(msu_async_task_t *cb_data);
 
 typedef struct msu_async_bas_t_ msu_async_bas_t;
 struct msu_async_bas_t_ {
@@ -83,11 +83,9 @@ struct msu_async_playlist_t_ {
 	gchar *didl;
 };
 
-struct msu_async_cb_data_t_ {
-	msu_task_type_t type;
-	msu_task_t *task;
+struct msu_async_task_t_ {
+	msu_task_t task; /* pseudo inheritance - MUST be first field */
 	msu_upnp_task_complete_t cb;
-	GVariant *result;
 	GError *error;
 	GUPnPServiceProxyAction *action;
 	GUPnPServiceProxy *proxy;
@@ -103,12 +101,9 @@ struct msu_async_cb_data_t_ {
 	} ut;
 };
 
-msu_async_cb_data_t *msu_async_cb_data_new(msu_task_t *task,
-					  msu_upnp_task_complete_t cb);
-void msu_async_cb_data_delete(msu_async_cb_data_t *cb_data);
-gboolean msu_async_complete_task(gpointer user_data);
-void msu_async_task_cancelled(GCancellable *cancellable, gpointer user_data);
-
-
+void msu_async_task_delete(msu_async_task_t *cb_data);
+gboolean msu_async_task_complete(gpointer user_data);
+void msu_async_task_cancelled_cb(GCancellable *cancellable, gpointer user_data);
+gboolean msu_async_task_cancel(msu_async_task_t *cb_data);
 
 #endif

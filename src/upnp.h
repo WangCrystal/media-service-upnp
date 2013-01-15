@@ -42,8 +42,7 @@ struct msu_interface_info_t_ {
 };
 
 typedef void (*msu_upnp_callback_t)(const gchar *path, void *user_data);
-typedef void (*msu_upnp_task_complete_t)(msu_task_t *task, GVariant *result,
-					 GError *error);
+typedef void (*msu_upnp_task_complete_t)(msu_task_t *task, GError *error);
 
 msu_upnp_t *msu_upnp_new(GDBusConnection *connection,
 			 msu_interface_info_t *interface_info,

@@ -21,7 +21,7 @@
  */
 
 #include "error.h"
-#include "task.h"
+#include "async.h"
 
 msu_task_t *msu_task_get_version_new(GDBusMethodInvocation *invocation)
 {
@@ -50,6 +50,9 @@ msu_task_t *msu_task_get_servers_new(GDBusMethodInvocation *invocation)
 
 static void prv_msu_task_delete(msu_task_t *task)
 {
+	if (!task->synchronous)
+		msu_async_task_delete((msu_async_task_t *)task);
+
 	switch (task->type) {
 	case MSU_TASK_GET_CHILDREN:
 		if (task->ut.get_children.filter)
@@ -115,9 +118,6 @@ static void prv_msu_task_delete(msu_task_t *task)
 	if (task->result)
 		g_variant_unref(task->result);
 
-	if (task->cancellable)
-		g_object_unref(task->cancellable);
-
 	g_free(task);
 }
 
@@ -136,9 +136,17 @@ static msu_task_t *prv_m2spec_task_new(msu_task_type_t type,
 				       GDBusMethodInvocation *invocation,
 				       const gchar *path,
 				       const gchar *result_format,
-				       GError **error)
+				       GError **error,
+				       gboolean synchronous)
 {
-	msu_task_t *task = g_new0(msu_task_t, 1);
+	msu_task_t *task;
+
+	if (synchronous) {
+		task = g_new0(msu_task_t, 1);
+		task->synchronous = TRUE;
+	} else {
+		task = (msu_task_t *)g_new0(msu_async_task_t, 1);
+	}
 
 	if (!prv_set_task_target_info(task, path, error)) {
 		prv_msu_task_delete(task);
@@ -164,7 +172,7 @@ msu_task_t *msu_task_get_children_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_GET_CHILDREN, invocation, path,
-				   "(@aa{sv})", error);
+				   "(@aa{sv})", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -192,7 +200,7 @@ msu_task_t *msu_task_get_children_ex_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_GET_CHILDREN, invocation, path,
-				   "(@aa{sv})", error);
+				   "(@aa{sv})", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -217,7 +225,7 @@ msu_task_t *msu_task_get_prop_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_GET_PROP, invocation, path, "(v)",
-				   error);
+				   error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -239,7 +247,7 @@ msu_task_t *msu_task_get_props_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_GET_ALL_PROPS, invocation, path,
-				   "(@a{sv})", error);
+				   "(@a{sv})", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -258,7 +266,7 @@ msu_task_t *msu_task_search_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_SEARCH, invocation, path,
-				   "(@aa{sv})", error);
+				   "(@aa{sv})", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -279,7 +287,7 @@ msu_task_t *msu_task_search_ex_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_SEARCH, invocation, path,
-				   "(@aa{sv}u)", error);
+				   "(@aa{sv}u)", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -301,7 +309,7 @@ msu_task_t *msu_task_get_resource_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_GET_RESOURCE, invocation, path,
-				   "(@a{sv})", error);
+				   "(@a{sv})", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -335,7 +343,8 @@ static msu_task_t *prv_upload_new_generic(msu_task_type_t type,
 {
 	msu_task_t *task;
 
-	task = prv_m2spec_task_new(type, invocation, path, "(uo)", error);
+	task = prv_m2spec_task_new(type, invocation, path,
+				   "(uo)", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -388,13 +397,12 @@ msu_task_t *msu_task_get_upload_status_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_GET_UPLOAD_STATUS, invocation, path,
-				   "(stt)", error);
+				   "(stt)", error, TRUE);
 	if (!task)
 		goto finished;
 
 	g_variant_get(parameters, "(u)",
 		      &task->ut.upload_action.upload_id);
-	task->synchronous = TRUE;
 	task->multiple_retvals = TRUE;
 
 finished:
@@ -409,11 +417,9 @@ msu_task_t *msu_task_get_upload_ids_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_GET_UPLOAD_IDS, invocation, path,
-				   "(@au)", error);
+				   "(@au)", error, TRUE);
 	if (!task)
 		goto finished;
-
-	task->synchronous = TRUE;
 
 finished:
 
@@ -428,13 +434,12 @@ msu_task_t *msu_task_cancel_upload_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_CANCEL_UPLOAD, invocation, path,
-				   NULL, error);
+				   NULL, error, TRUE);
 	if (!task)
 		goto finished;
 
 	g_variant_get(parameters, "(u)",
 		      &task->ut.upload_action.upload_id);
-	task->synchronous = TRUE;
 
 finished:
 
@@ -448,7 +453,7 @@ msu_task_t *msu_task_delete_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_DELETE_OBJECT, invocation,
-				   path, NULL, error);
+				   path, NULL, error, FALSE);
 	return task;
 }
 
@@ -461,7 +466,8 @@ msu_task_t *msu_task_create_container_new_generic(
 {
 	msu_task_t *task;
 
-	task = prv_m2spec_task_new(type, invocation, path, "(@o)", error);
+	task = prv_m2spec_task_new(type, invocation, path,
+				   "(@o)", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -483,7 +489,8 @@ msu_task_t *msu_task_create_playlist_new(GDBusMethodInvocation *invocation,
 {
 	msu_task_t *task;
 
-	task = prv_m2spec_task_new(type, invocation, path, "(uo)", error);
+	task = prv_m2spec_task_new(type, invocation, path,
+				   "(uo)", error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -509,7 +516,7 @@ msu_task_t *msu_task_update_new(GDBusMethodInvocation *invocation,
 	msu_task_t *task;
 
 	task = prv_m2spec_task_new(MSU_TASK_UPDATE_OBJECT, invocation, path,
-				   NULL, error);
+				   NULL, error, FALSE);
 	if (!task)
 		goto finished;
 
@@ -578,10 +585,9 @@ gboolean msu_task_cancel(msu_task_t *task)
 		g_error_free(error);
 	}
 
-	if (task->cancellable) {
-		g_cancellable_cancel(task->cancellable);
-		defer_completion = TRUE;
-	}
+	if (!task->synchronous)
+		defer_completion = msu_async_task_cancel(
+						(msu_async_task_t *)task);
 
 finished:
 
