@@ -26,34 +26,33 @@
 
 void msu_async_task_delete(msu_async_task_t *cb_data)
 {
-	if (cb_data) {
-		switch (cb_data->task.type) {
-		case MSU_TASK_GET_CHILDREN:
-		case MSU_TASK_SEARCH:
-			if (cb_data->ut.bas.vbs)
-				g_ptr_array_unref(cb_data->ut.bas.vbs);
-			break;
-		case MSU_TASK_GET_ALL_PROPS:
-		case MSU_TASK_GET_RESOURCE:
-			if (cb_data->ut.get_all.vb)
-				g_variant_builder_unref(cb_data->ut.get_all.vb);
-			break;
-		case MSU_TASK_UPLOAD_TO_ANY:
-		case MSU_TASK_UPLOAD:
-			g_free(cb_data->ut.upload.mime_type);
-			break;
-		case MSU_TASK_UPDATE_OBJECT:
-			g_free(cb_data->ut.update.current_tag_value);
-			g_free(cb_data->ut.update.new_tag_value);
-			break;
-		case MSU_TASK_CREATE_PLAYLIST:
-		case MSU_TASK_CREATE_PLAYLIST_IN_ANY:
-			g_free(cb_data->ut.playlist.didl);
-			if (cb_data->ut.playlist.collection)
-				g_object_unref(cb_data->ut.playlist.collection);
-		default:
-			break;
-		}
+	switch (cb_data->task.type) {
+	case MSU_TASK_GET_CHILDREN:
+	case MSU_TASK_SEARCH:
+		if (cb_data->ut.bas.vbs)
+			g_ptr_array_unref(cb_data->ut.bas.vbs);
+		break;
+	case MSU_TASK_GET_ALL_PROPS:
+	case MSU_TASK_GET_RESOURCE:
+		if (cb_data->ut.get_all.vb)
+			g_variant_builder_unref(cb_data->ut.get_all.vb);
+		break;
+	case MSU_TASK_UPLOAD_TO_ANY:
+	case MSU_TASK_UPLOAD:
+		g_free(cb_data->ut.upload.mime_type);
+		break;
+	case MSU_TASK_UPDATE_OBJECT:
+		g_free(cb_data->ut.update.current_tag_value);
+		g_free(cb_data->ut.update.new_tag_value);
+		break;
+	case MSU_TASK_CREATE_PLAYLIST:
+	case MSU_TASK_CREATE_PLAYLIST_IN_ANY:
+		g_free(cb_data->ut.playlist.didl);
+		if (cb_data->ut.playlist.collection)
+			g_object_unref(cb_data->ut.playlist.collection);
+		break;
+	default:
+		break;
 	}
 
 	if (cb_data->cancellable)
