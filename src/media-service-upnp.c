@@ -39,6 +39,12 @@
 #include "async.h"
 #include "upnp.h"
 
+#ifdef UA_PREFIX
+	#define PRG_NAME UA_PREFIX " dLeyna/" VERSION
+#else
+	#define PRG_NAME "dLeyna/" VERSION
+#endif
+
 typedef struct msu_context_t_ msu_context_t;
 struct msu_context_t_ {
 	bool error;
@@ -1303,6 +1309,8 @@ int main(int argc, char *argv[])
 
 	msu_log_init(argv[0]);
 	msu_settings_new(&g_context.settings);
+
+	g_set_prgname(PRG_NAME);
 
 	g_context.root_node_info =
 		g_dbus_node_info_new_for_xml(g_msu_root_introspection, NULL);

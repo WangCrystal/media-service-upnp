@@ -156,6 +156,13 @@ AC_ARG_WITH(log-type,
 
 MSU_LOG_TYPE_CHECK([${with_log_type}])
 
+AC_ARG_WITH(ua-prefix,
+		AS_HELP_STRING(
+			[--with-ua-prefix],
+			[Specify a user agent prefix]),
+		[with_ua_prefix = "$withval"; AC_DEFINE_UNQUOTED([UA_PREFIX], "$with_ua_prefix", [User Agent prefix])],
+		[])
+
 
 DBUS_SESSION_DIR=`$PKG_CONFIG --variable=session_bus_services_dir dbus-1`
 AC_SUBST(DBUS_SESSION_DIR)
@@ -206,5 +213,6 @@ CFLAGS    : '${CFLAGS}'
 	- enable-never-quit   : ${enable_never_quit}
 	- with-log-level      : ${with_log_level}
 	- with-log-type       : ${with_log_type}
+	- with-ua-prefix      : ${with_ua_prefix}
 
 --------------------------------------------------"])
