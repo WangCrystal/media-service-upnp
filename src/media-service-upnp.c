@@ -1239,6 +1239,8 @@ static void prv_name_lost(GDBusConnection *connection, const gchar *name,
 static gboolean prv_quit_handler(GIOChannel *source, GIOCondition condition,
 				 gpointer user_data)
 {
+	MSU_LOG_DEBUG("");
+
 	msu_task_processor_set_quitting(g_context.processor);
 	g_context.sig_id = 0;
 

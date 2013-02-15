@@ -50,14 +50,7 @@ repositories:
 git://git.gnome.org/gupnp
 git://git.gnome.org/gssdp
 git://git.gnome.org/gupnp-av
-
-However, media-service-upnp should compile against older versions of
-GUPnP, although you might see some warnings.  On Ubuntu the development
-versions of the GUPnP libraries can be installed as follows:
-
-sudo apt-get install libgupnp-1.0-dev
-sudo apt-get install libgupnp-av-1.0-dev
-sudo apt-get install libgssdp-1.0-dev
+git://git.gnome.org/gupnp-dlna
 
 The development version of d-Bus is also required.  This can be
 installed on Ubuntu by typing:
