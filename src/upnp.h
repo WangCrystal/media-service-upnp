@@ -94,6 +94,7 @@ void msu_upnp_create_playlist(msu_upnp_t *upnp, msu_client_t *client,
 void msu_upnp_create_playlist_in_any(msu_upnp_t *upnp, msu_client_t *client,
 				     msu_task_t *task,
 				     msu_upnp_task_complete_t cb);
+void msu_upnp_unsubscribe(msu_upnp_t *upnp);
 
 gboolean msu_upnp_device_context_exist(msu_device_t *device,
 				       msu_device_context_t *context);

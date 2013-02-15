@@ -146,34 +146,43 @@ static void prv_msu_device_count_data_new(msu_async_task_t *cb_data,
 	*count_data = cd;
 }
 
+static void prv_msu_context_unsubscribe(msu_device_context_t *ctx)
+{
+	if (ctx->timeout_id) {
+		(void) g_source_remove(ctx->timeout_id);
+		ctx->timeout_id = 0;
+	}
+
+	if (ctx->subscribed) {
+		gupnp_service_proxy_remove_notify(
+					ctx->service_proxy,
+					MSU_SYSTEM_UPDATE_VAR,
+					prv_system_update_cb,
+					ctx->device);
+		gupnp_service_proxy_remove_notify(
+					ctx->service_proxy,
+					MSU_CONTAINER_UPDATE_VAR,
+					prv_container_update_cb,
+					ctx->device);
+		gupnp_service_proxy_remove_notify(
+					ctx->service_proxy,
+					MSU_LAST_CHANGE_VAR,
+					prv_last_change_cb,
+					ctx->device);
+
+		gupnp_service_proxy_set_subscribed(ctx->service_proxy,
+						   FALSE);
+
+		ctx->subscribed = FALSE;
+	}
+}
+
 static void prv_msu_context_delete(gpointer context)
 {
 	msu_device_context_t *ctx = context;
 
 	if (ctx) {
-		if (ctx->timeout_id)
-			(void) g_source_remove(ctx->timeout_id);
-
-		if (ctx->subscribed) {
-			gupnp_service_proxy_remove_notify(
-						ctx->service_proxy,
-						MSU_SYSTEM_UPDATE_VAR,
-						prv_system_update_cb,
-						ctx->device);
-			gupnp_service_proxy_remove_notify(
-						ctx->service_proxy,
-						MSU_CONTAINER_UPDATE_VAR,
-						prv_container_update_cb,
-						ctx->device);
-			gupnp_service_proxy_remove_notify(
-						ctx->service_proxy,
-						MSU_LAST_CHANGE_VAR,
-						prv_last_change_cb,
-						ctx->device);
-
-			gupnp_service_proxy_set_subscribed(ctx->service_proxy,
-							   FALSE);
-		}
+		prv_msu_context_unsubscribe(ctx);
 
 		if (ctx->device_proxy)
 			g_object_unref(ctx->device_proxy);
@@ -233,6 +242,21 @@ void msu_device_delete(void *device)
 		g_free(dev);
 	}
 }
+
+void msu_device_unsubscribe(void *device)
+{
+	unsigned int i;
+	msu_device_t *dev = device;
+	msu_device_context_t *context;
+
+	if (dev) {
+		for (i = 0; i < dev->contexts->len; ++i) {
+			context = g_ptr_array_index(dev->contexts, i);
+			prv_msu_context_unsubscribe(context);
+		}
+	}
+}
+
 
 static void prv_last_change_decode(GUPnPCDSLastChangeEntry *entry,
 				   GVariantBuilder *array,

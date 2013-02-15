@@ -1167,6 +1167,23 @@ on_error:
 	MSU_LOG_DEBUG("Exit failure");
 }
 
+void msu_upnp_unsubscribe(msu_upnp_t *upnp)
+{
+	GHashTableIter iter;
+	gpointer value;
+	msu_device_t *device;
+
+	MSU_LOG_DEBUG("Enter");
+
+	g_hash_table_iter_init(&iter, upnp->server_udn_map);
+	while (g_hash_table_iter_next(&iter, NULL, &value)) {
+		device = value;
+		msu_device_unsubscribe(device);
+	}
+
+	MSU_LOG_DEBUG("Exit");
+}
+
 static gboolean prv_device_uc_find(gpointer key, gpointer value,
 				   gpointer user_data)
 {

@@ -462,11 +462,21 @@ msu_task_processor_t *msu_media_service_get_task_processor(void)
 	return g_context.processor;
 }
 
+static gboolean prv_context_mainloop_quit_cb(gpointer user_data)
+{
+	g_main_loop_quit(g_context.main_loop);
+
+	return FALSE;
+}
+
+
 static gboolean prv_context_quit_cb(gpointer user_data)
 {
 	MSU_LOG_DEBUG("Quitting");
 
-	g_main_loop_quit(g_context.main_loop);
+	msu_upnp_unsubscribe(g_context.upnp);
+
+	g_timeout_add_seconds(1, prv_context_mainloop_quit_cb, NULL);
 
 	return FALSE;
 }

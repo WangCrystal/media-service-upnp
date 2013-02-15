@@ -60,6 +60,7 @@ msu_device_context_t *msu_device_append_new_context(msu_device_t *device,
 						    const gchar *ip_address,
 						    GUPnPDeviceProxy *proxy);
 void msu_device_delete(void *device);
+void msu_device_unsubscribe(void *device);
 msu_device_t *msu_device_new(GDBusConnection *connection,
 			     GUPnPDeviceProxy *proxy,
 			     const gchar *ip_address,
