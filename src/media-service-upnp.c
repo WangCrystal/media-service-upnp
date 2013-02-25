@@ -474,6 +474,11 @@ static gboolean prv_context_quit_cb(gpointer user_data)
 {
 	MSU_LOG_DEBUG("Quitting");
 
+	if (g_context.owner_id) {
+		g_bus_unown_name(g_context.owner_id);
+		g_context.owner_id = 0;
+	}
+
 	msu_upnp_unsubscribe(g_context.upnp);
 
 	g_timeout_add_seconds(1, prv_context_mainloop_quit_cb, NULL);
